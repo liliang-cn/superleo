@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"os"
 	"slices"
@@ -24,13 +25,35 @@ var QueenEngineServers = []string{NotedServer, "cortexdb"}
 // set, or — with remote, for a CLI on another machine — is a command (it
 // would run there, not here) or a URL only this machine can reach.
 func EngineMCPServer(name string, remote bool) (entry map[string]any, env map[string]string, ok bool) {
+	entry, env, _, ok = EngineMCPServerWhy(name, remote)
+	return entry, env, ok
+}
+
+// EngineNotConfigured is the reason EngineMCPServerWhy gives for a server
+// this instance simply does not have.
+const EngineNotConfigured = "not configured on this machine"
+
+// EngineMCPServerWhy is EngineMCPServer that also says why a server was left
+// out. The reason names variables, never their values.
+//
+// A ${NAME} is read from the entry's own env first — mcp-remote's documented
+// form is "--header", "Authorization:${AUTH}" with "env": {"AUTH": "…"} —
+// and then from this process's environment.
+func EngineMCPServerWhy(name string, remote bool) (entry map[string]any, env map[string]string, reason string, ok bool) {
 	raw, found := rawMCPServer(MCPConfigSources(), name)
 	if !found {
-		return nil, nil, false
+		return nil, nil, EngineNotConfigured, false
 	}
 	entry = make(map[string]any, len(raw))
 	for k, v := range raw {
 		entry[k] = v
+	}
+	own, _ := entry["env"].(map[string]any)
+	lookup := func(k string) (string, bool) {
+		if v, ok := own[k].(string); ok && v != "" {
+			return v, true
+		}
+		return os.LookupEnv(k)
 	}
 	u, _ := entry["url"].(string)
 	switch t, _ := entry["type"].(string); {
@@ -39,26 +62,26 @@ func EngineMCPServer(name string, remote bool) (entry map[string]any, env map[st
 		if t == "" || strings.Contains(t, "streamable") {
 			entry["type"] = "http"
 		}
-		if resolved, _ := expandMCPEnv(u, os.LookupEnv); remote && loopbackURL(resolved) {
-			return nil, nil, false
+		if resolved, _ := expandMCPEnv(u, lookup); remote && loopbackURL(resolved) {
+			return nil, nil, "its URL only this machine can reach, and the engine is on another machine", false
 		}
 	case remote:
-		return nil, nil, false
+		return nil, nil, "it is a command, which would run on the engine's machine, not here", false
 	}
 	body, _ := json.Marshal(entry)
 	env = map[string]string{}
 	for _, m := range mcpEnvRef.FindAllStringSubmatch(string(body), -1) {
-		v, set := os.LookupEnv(m[1])
+		v, set := lookup(m[1])
 		if !set || v == "" {
-			return nil, nil, false
+			return nil, nil, fmt.Sprintf("${%s} is set neither in its own env nor in the environment", m[1]), false
 		}
 		// The other machine's own HOME or PATH is the one its CLI needs.
 		if remote && slices.Contains([]string{"HOME", "PATH", "USER", "SHELL", "TMPDIR", "PWD"}, m[1]) {
-			return nil, nil, false
+			return nil, nil, fmt.Sprintf("${%s} is this machine's own, not the engine machine's", m[1]), false
 		}
 		env[m[1]] = v
 	}
-	return entry, env, true
+	return entry, env, "", true
 }
 
 // rawMCPServer is the first entry called name in sources, as written.

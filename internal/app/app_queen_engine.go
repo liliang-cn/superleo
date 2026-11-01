@@ -569,11 +569,18 @@ func (a *App) queenKitFor(engine string, s *backend.Settings) (*QueenKit, error)
 		}
 	}
 	for _, name := range backend.QueenEngineServers {
-		if entry, env, ok := backend.EngineMCPServer(name, remote); ok {
-			kit.Servers[name] = entry
-			for k, v := range env {
-				kit.Env[k] = v
+		entry, env, why, ok := backend.EngineMCPServerWhy(name, remote)
+		if !ok {
+			// A server this instance does not have is ordinary; any other
+			// reason costs the engine a tool, so it is said.
+			if why != backend.EngineNotConfigured {
+				slog.Warn("queen engine is not handed an MCP server", "engine", engine, "server", name, "reason", why)
 			}
+			continue
+		}
+		kit.Servers[name] = entry
+		for k, v := range env {
+			kit.Env[k] = v
 		}
 	}
 	return kit, nil
