@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import { useNavigate } from "react-router-dom";
 import {
   ListTodoIcon, LayoutDashboardIcon, ChartColumnIcon, PanelRightOpenIcon, PanelRightCloseIcon, BookOpenIcon, BotIcon, HexagonIcon, MessageSquareIcon, PaletteIcon,
-  NotebookTabsIcon, PuzzleIcon, SlidersHorizontalIcon, TerminalIcon, XIcon,
+  NotebookTabsIcon, MessagesSquareIcon, PuzzleIcon, SlidersHorizontalIcon, TerminalIcon, XIcon,
   MoonIcon, SunIcon, CalendarDaysIcon, GlobeIcon,
 } from "lucide-react";
 import DeskStatusBar from "./DeskStatusBar";
@@ -16,7 +16,7 @@ import { useI18n } from "../lib/i18n";
 import { queenTitle, useQueenName } from "../lib/queenName";
 import NotificationCenter from "../components/NotificationCenter";
 import ThemePanel from "../canvas/ThemePanel";
-import { ChatFab, FabStack, ModeFab, SettingsFab } from "../components/Fabs";
+import { ChatFab, ConversationsFab, FabStack, ModeFab, SettingsFab } from "../components/Fabs";
 import { askToCompose } from "../lib/compose";
 import { openBrowserPanel, useBrowserPanelOpen } from "../lib/browser";
 import "../canvas/canvas.css";
@@ -55,6 +55,7 @@ const loadMode = (): "world" | "menu" => {
 
 const RAIL: { key: ViewKey; label: string; Icon: typeof HexagonIcon; cls: string }[] = [
   { key: "home", label: "The queen", Icon: MessageSquareIcon, cls: "dk-a-chat" },
+  { key: "conversations", label: "Conversations", Icon: MessagesSquareIcon, cls: "dk-a-rec" },
   { key: "schedule", label: "Schedule", Icon: CalendarDaysIcon, cls: "dk-a-sched" },
   { key: "tasks", label: "Needs your attention", Icon: ListTodoIcon, cls: "dk-a-later" },
   { key: "hive", label: "Hive", Icon: HexagonIcon, cls: "dk-a-hive" },
@@ -69,7 +70,7 @@ const RAIL: { key: ViewKey; label: string; Icon: typeof HexagonIcon; cls: string
 const SIDE: ViewKey[] = ["dashboards", "stats"];
 
 export const TITLES: Record<ViewKey, string> = {
-  home: "", chat: "Chat", tasks: "Needs your attention", schedule: "Schedule", dashboards: "Dashboards", hive: "Hive", agents: "Bees", coding: "Coding", knowledge: "Knowledge",
+  home: "", chat: "Chat", conversations: "Conversations", tasks: "Needs your attention", schedule: "Schedule", dashboards: "Dashboards", hive: "Hive", agents: "Bees", coding: "Coding", knowledge: "Knowledge",
   skills: "Skills", mcp: "MCP", stats: "Stats", records: "Records", settings: "Settings",
 };
 
@@ -257,6 +258,7 @@ export default function DeskShell({ view, badges, children, onOpenConversation, 
           <button className="dk-win-x" style={noDrag} title={t("Back to the world")} onClick={() => setMode("world")}><XIcon size={18} /></button>
         )}
         <FabStack style={noDrag}>
+          {world && <ConversationsFab onClick={() => window.dispatchEvent(new CustomEvent("superleo:window", { detail: PATHS.conversations }))} />}
           {world && <SettingsFab onClick={() => window.dispatchEvent(new CustomEvent("superleo:window", { detail: PATHS.settings }))} />}
           <ModeFab world={world} onClick={toggleMode} />
           <ChatFab onClick={openChat} />

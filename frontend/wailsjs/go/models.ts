@@ -1164,6 +1164,151 @@ export namespace app {
 		    return a;
 		}
 	}
+	export class Conversation {
+	    id: string;
+	    kind: string;
+	    with: string;
+	    name?: string;
+	    machine?: string;
+	    title: string;
+	    last?: string;
+	    turns: number;
+	    at: string;
+	    state?: string;
+	    source?: string;
+	    session: string;
+	    run?: string;
+	    agent?: string;
+	    cwd?: string;
+	    replyable: boolean;
+	    why?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Conversation(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.kind = source["kind"];
+	        this.with = source["with"];
+	        this.name = source["name"];
+	        this.machine = source["machine"];
+	        this.title = source["title"];
+	        this.last = source["last"];
+	        this.turns = source["turns"];
+	        this.at = source["at"];
+	        this.state = source["state"];
+	        this.source = source["source"];
+	        this.session = source["session"];
+	        this.run = source["run"];
+	        this.agent = source["agent"];
+	        this.cwd = source["cwd"];
+	        this.replyable = source["replyable"];
+	        this.why = source["why"];
+	    }
+	}
+	export class ConversationFilter {
+	    with: string;
+	    query: string;
+	    limit: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConversationFilter(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.with = source["with"];
+	        this.query = source["query"];
+	        this.limit = source["limit"];
+	    }
+	}
+	export class ConversationParty {
+	    with: string;
+	    kind: string;
+	    name?: string;
+	    machine?: string;
+	    count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConversationParty(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.with = source["with"];
+	        this.kind = source["kind"];
+	        this.name = source["name"];
+	        this.machine = source["machine"];
+	        this.count = source["count"];
+	    }
+	}
+	export class ConversationList {
+	    parties: ConversationParty[];
+	    items: Conversation[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ConversationList(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.parties = this.convertValues(source["parties"], ConversationParty);
+	        this.items = this.convertValues(source["items"], Conversation);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class ConversationThread {
+	    conversation: Conversation;
+	    turns: backend.ChatTurn[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ConversationThread(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.conversation = this.convertValues(source["conversation"], Conversation);
+	        this.turns = this.convertValues(source["turns"], backend.ChatTurn);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class DesktopResident {
 	    startAtLogin: boolean;
 	    keepRunning: boolean;
@@ -1254,6 +1399,28 @@ export namespace app {
 		    }
 		    return a;
 		}
+	}
+	export class DirectReply {
+	    conversation: string;
+	    text: string;
+	    failed: boolean;
+	    tools?: string[];
+	    task_id?: string;
+	    host?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DirectReply(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.conversation = source["conversation"];
+	        this.text = source["text"];
+	        this.failed = source["failed"];
+	        this.tools = source["tools"];
+	        this.task_id = source["task_id"];
+	        this.host = source["host"];
+	    }
 	}
 	export class HiveLinkInfo {
 	    linked: boolean;
@@ -2968,6 +3135,7 @@ export namespace backend {
 	    title: string;
 	    turns: number;
 	    updated_at: string;
+	    last?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ChatSessionInfo(source);
@@ -2979,6 +3147,7 @@ export namespace backend {
 	        this.title = source["title"];
 	        this.turns = source["turns"];
 	        this.updated_at = source["updated_at"];
+	        this.last = source["last"];
 	    }
 	}
 	export class ChatTurn {
@@ -3368,6 +3537,7 @@ export namespace backend {
 	    host?: string;
 	    mcp: string[];
 	    clis?: string[];
+	    mcp_tools?: Record<string, Array<string>>;
 	    skills?: string[];
 	    abilities?: HiveAbility[];
 	    state: string;
@@ -3391,6 +3561,7 @@ export namespace backend {
 	        this.host = source["host"];
 	        this.mcp = source["mcp"];
 	        this.clis = source["clis"];
+	        this.mcp_tools = source["mcp_tools"];
 	        this.skills = source["skills"];
 	        this.abilities = this.convertValues(source["abilities"], HiveAbility);
 	        this.state = source["state"];
@@ -4367,6 +4538,7 @@ export namespace backend {
 	        this.interruptedAt = source["interruptedAt"];
 	        this.done = source["done"];
 	        this.running = source["running"];
+	        this.state = source["state"];
 	        this.stop = source["stop"];
 	        this.final = source["final"];
 	        this.maxSegments = source["maxSegments"];
@@ -4450,6 +4622,7 @@ export namespace backend {
 	        this.interruptedAt = source["interruptedAt"];
 	        this.running = source["running"];
 	        this.done = source["done"];
+	        this.state = source["state"];
 	        this.stop = source["stop"];
 	        this.segments = source["segments"];
 	        this.maxSegments = source["maxSegments"];

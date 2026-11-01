@@ -1,5 +1,5 @@
 import type React from "react";
-import { BoxIcon, ListIcon, MessageSquareIcon, SlidersHorizontalIcon } from "lucide-react";
+import { BoxIcon, ListIcon, MessageSquareIcon, MessagesSquareIcon, SlidersHorizontalIcon } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { queenRef, useQueenName } from "../lib/queenName";
 import "./fabs.css";
@@ -41,6 +41,16 @@ export function SettingsFab({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" className="fab fab-mode" onClick={onClick} aria-label={t("Settings")} title={t("Settings")}>
       <SlidersHorizontalIcon size={17} />
+    </button>
+  );
+}
+
+/** Every conversation, in 3D where the rail that holds the page is not drawn. */
+export function ConversationsFab({ onClick }: { onClick: () => void }) {
+  const { t } = useI18n();
+  return (
+    <button type="button" className="fab fab-mode" onClick={onClick} aria-label={t("Conversations")} title={t("Conversations")}>
+      <MessagesSquareIcon size={17} />
     </button>
   );
 }

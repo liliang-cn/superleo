@@ -39,7 +39,7 @@ import {
   SquareIcon,
   LayoutDashboardIcon,
 } from "lucide-react";
-import { HistoryBar, HistoryList, useHistory } from "../components/HistoryBar";
+import { HistoryBar } from "../components/HistoryBar";
 import SidePanel from "../components/SidePanel";
 import DeliverablesBar from "../components/DeliverablesBar";
 import ContextBlock from "../components/ContextBlock";
@@ -89,7 +89,6 @@ export default function ChatView({
   const messages = chat.messages;
   const newestBrowser = newestBrowserTurn(messages, chat.trace);
   const room = useRoom();
-  const history = useHistory();
   const [filesKey, setFilesKey] = useState(0);
   // The composer is controlled so the send button can know whether there is
   // anything to send — which is what decides between "send" and "stop" below.
@@ -135,7 +134,6 @@ export default function ChatView({
   // one out of history.
   useEffect(() => {
     if (!openSession) return;
-    history.close();
     chat.loadSession(openSession).catch(() => {});
     onSessionOpened?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,7 +142,6 @@ export default function ChatView({
   useEffect(() => {
     // A finished turn may have written files and definitely changed history.
     chat.onDone(() => {
-      history.invalidate();
       setFilesKey((k) => k + 1);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,7 +223,6 @@ export default function ChatView({
           {/* Starting a new conversation mid-answer is safe: the running ask
               finishes into its own conversation's history. */}
           <HistoryBar
-            history={history}
             onNew={chat.newSession}
             sessionId={chat.sessionId}
             onTrace={() => setTraceOpen(true)}
@@ -239,13 +235,7 @@ export default function ChatView({
             />
           )}
 
-          {history.sessions ? (
-            <HistoryList
-              history={history}
-              currentId={chat.sessionId}
-              onPick={(id) => chat.loadSession(id).catch(() => {})}
-            />
-          ) : (
+          {(
             <Conversation className="transcript">
               {messages.length === 0 ? (
                 <ConversationEmptyState

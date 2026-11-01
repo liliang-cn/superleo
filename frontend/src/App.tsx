@@ -20,6 +20,7 @@ import { useAttentionState } from "./canvas/attention";
 import DashboardsPanel from "./components/DashboardsPanel";
 import TasksView from "./views/TasksView";
 import RecordsView from "./views/RecordsView";
+import ConversationsView from "./views/ConversationsView";
 import ScheduleView from "./views/ScheduleView";
 import CanvasView from "./canvas/CanvasView";
 import DeskView from "./desk/DeskView";
@@ -189,6 +190,7 @@ export default function App() {
           />
         }
       />
+      <Route path="/conversations" element={<ConversationsView />} />
       <Route path="/dashboards" element={<div className="dashboards-view"><DashboardsPanel /></div>} />
       <Route path="/tasks" element={<TasksView attention={attention} approvals={approvals.pending} onOpenConversation={openConversation} onResolve={approvals.resolve} />} />
       <Route path="/schedule" element={<ScheduleView />} />

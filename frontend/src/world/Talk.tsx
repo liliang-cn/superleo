@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStickToBottom } from "../lib/useStickToBottom";
-import { SendIcon } from "lucide-react";
-import { AskRemoteAgent, ChatHistory, CLIRunDetail, FollowUpCLIRun, HiveTaskDetail, SendChat, StandingReports, StartCLIRun, WakeStandingAgent } from "../../wailsjs/go/app/App";
+import { HistoryIcon, SendIcon } from "lucide-react";
+import { AskIn, ChatHistory, CLIRunDetail, FollowUpCLIRun, SendChat, StandingReports, StartCLIRun, WakeStandingAgent } from "../../wailsjs/go/app/App";
 import { EventsOn } from "../../wailsjs/runtime";
 import { loadQueenSession, queenSession } from "../lib/queenConsole";
 import { useI18n } from "../lib/i18n";
@@ -26,10 +26,20 @@ type Line = { who: "you" | "it"; text: string; bad?: boolean; req?: string; tool
 
 // Each robot's conversation lasts as long as the app does, so closing its
 // card and opening it again picks up where it was.
-const threads = new Map<string, { lines: Line[]; run?: string }>();
+// `conv` is the kept conversation of a worker or agent, `thread` a coding run's:
+// where the Conversations page has the whole of it.
+const threads = new Map<string, { lines: Line[]; run?: string; conv?: string; thread?: string }>();
 /** Which robot speaks for a talker, in the world. */
 const actorOf = (t: Talker) => t.kind === "queen" ? "queen" : t.kind === "worker" ? "worker:" + t.name : t.kind === "agent" ? "agent:" + t.name : t.kind === "cli" ? "cli:" + t.agent : "bee:" + t.id;
 const keyOf = (t: Talker) => t.kind + ":" + ("name" in t ? t.name : "agent" in t ? t.agent : "id" in t ? t.id : "");
+
+/** The id the Conversations page knows this talk by, once there is one. */
+function keptOf(who: Talker, th?: { conv?: string; thread?: string }): string {
+  if (who.kind === "queen") return "queen:" + queenSession();
+  if (who.kind === "cli") return th?.thread ? "cli:" + th.thread : "";
+  if (who.kind === "worker" || who.kind === "agent") return th?.conv ? "direct:" + th.conv : "";
+  return "";
+}
 
 /**
  * A conversation with one robot, in its card. The queen answers in her own
@@ -189,21 +199,21 @@ export default function Talk({ who, placeholder }: { who: Talker; placeholder: s
           mine.current = "";
           break;
         case "worker": case "agent": {
-          // AskRemoteAgent starts an independent remote request each time. Carry
-          // this thread with it so a follow-up has the same conversational context.
-          const history = lines.filter((l) => !l.bad).map((l) => `${l.who === "you" ? "User" : "Assistant"}: ${l.text}`).join("\n\n");
-          const prompt = history ? `Previous conversation:\n${history}\n\nUser: ${s}\n\nContinue the conversation and answer the latest user message.` : s;
-          const r: any = await AskRemoteAgent(who.name, prompt);
-          const detail: any = r.task_id ? await HiveTaskDetail(r.task_id).catch(() => null) : null;
-          const tools = (detail?.task?.events ?? []).filter((e: any) => e.phase === "tool").map((e: any) => String(e.tool || "tool"));
+          // Kept by the core under one conversation id: the words go into the
+          // Conversations page, and a follow-up is told what was said before.
+          const th = threads.get(key) ?? { lines: [] };
+          const r: any = await AskIn(th.conv ?? "", who.kind, who.name, s);
+          th.conv = String(r.conversation);
+          threads.set(key, th);
           setBusy("");
-          push({ who: "it", text: r.failed ? String(r.reason || "failed") : String(r.text ?? ""), bad: !!r.failed, tools });
+          push({ who: "it", text: String(r.text ?? ""), bad: !!r.failed, tools: r.tools ?? [] });
           break;
         }
         case "cli": {
           const th = threads.get(key) ?? { lines: [] };
           const run: any = th.run ? await FollowUpCLIRun(th.run, s) : await StartCLIRun(who.agent, s, "", "", true);
           th.run = String(run.id);
+          th.thread = String(run.thread);
           threads.set(key, th);
           setBusy(t("Working…"));
           const early = ended.current.get(th.run);
@@ -238,9 +248,19 @@ export default function Talk({ who, placeholder }: { who: Talker; placeholder: s
   };
 
   // The inspector is a narrow column: the compact card, as under a bubble.
+  // Where the whole of this conversation is kept.
+  const [, bump] = useState(0);
+  useEffect(() => { bump((n) => n + 1); }, [lines.length]);
+  const kept = keptOf(who, threads.get(key));
   const browser = useRequestBrowser([...lines.map((l) => l.req), liveReq || undefined], true);
   return (
     <div className="wt">
+      {kept && (
+        <button type="button" className="wt-hist" title={t("Conversations")} aria-label={t("Conversations")} data-testid="talk-history"
+          onClick={() => window.dispatchEvent(new CustomEvent("superleo:window", { detail: "/conversations?open=" + encodeURIComponent(kept) }))}>
+          <HistoryIcon size={13} />
+        </button>
+      )}
       {(lines.length > 0 || busy) && (
         <div className="wt-lines" ref={thread.ref} onScroll={thread.onScroll}>
           {lines.map((l, i) => [

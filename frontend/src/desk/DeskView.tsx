@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowUpIcon, HexagonIcon, 
   PlusIcon, SquareIcon, SquarePenIcon, CalendarIcon, AlarmClockIcon, TerminalIcon, TriangleAlertIcon, XIcon, ChevronRightIcon,
-  LayoutDashboardIcon, ActivityIcon, GaugeIcon, ScrollTextIcon, PaperclipIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, HistoryIcon,
+  LayoutDashboardIcon, ActivityIcon, GaugeIcon, ScrollTextIcon, PaperclipIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, HistoryIcon, MessagesSquareIcon,
 } from "lucide-react";
 import RunTracePanel from "../components/RunTracePanel";
 import TraceChip from "../components/TraceChip";
@@ -424,17 +424,9 @@ export default function DeskView({ approvals, openSession, onSessionOpened, atte
           </button>
         ))}
 
-        {recents.length > 0 && <div className="dk-sec">{t("Recents")}</div>}
-        <div className="dk-recents">
-          {recents.map((s) => {
-            const going = s.id === chat.sessionId && chat.sending;
-            return (
-              <button key={s.id} className={s.id === chat.sessionId && !onQueen ? "dk-rec dk-hist on" : "dk-rec dk-hist"} onClick={() => pickSession(s.id)}>
-                <span>{s.title || t("Untitled")}</span>{going ? <i className="dk-livedot" /> : <em>{ago(s.updated_at, now)}</em>}
-              </button>
-            );
-          })}
-        </div>
+        <button className="dk-row" onClick={() => navigate(PATHS.conversations)} data-testid="all-conversations">
+          <MessagesSquareIcon size={16} /><span className="dk-row-t">{t("Conversations")}</span>
+        </button>
         {earlierCount > 0 && (
           <button className={earlier ? "dk-row on dk-earlier-entry" : "dk-row dk-earlier-entry"} onClick={() => setEarlier(true)} data-testid="earlier-entry">
             <HistoryIcon size={16} /><span className="dk-row-t">{t("Earlier chats on this Mac")}</span>

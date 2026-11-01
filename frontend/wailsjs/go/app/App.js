@@ -34,6 +34,10 @@ export function AnswerCCPermission(arg1, arg2, arg3) {
   return window['go']['app']['App']['AnswerCCPermission'](arg1, arg2, arg3);
 }
 
+export function AskIn(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['AskIn'](arg1, arg2, arg3, arg4);
+}
+
 export function AskRemoteAgent(arg1, arg2) {
   return window['go']['app']['App']['AskRemoteAgent'](arg1, arg2);
 }
@@ -156,6 +160,14 @@ export function CodingSessionLog(arg1, arg2, arg3) {
 
 export function CodingSessions() {
   return window['go']['app']['App']['CodingSessions']();
+}
+
+export function ConversationThread(arg1) {
+  return window['go']['app']['App']['ConversationThread'](arg1);
+}
+
+export function Conversations(arg1) {
+  return window['go']['app']['App']['Conversations'](arg1);
 }
 
 export function CreateIntegrationToken(arg1) {
@@ -870,12 +882,28 @@ export function StartYoloMode() {
   return window['go']['app']['App']['StartYoloMode']();
 }
 
+export function StopHiveTask(arg1) {
+  return window['go']['app']['App']['StopHiveTask'](arg1);
+}
+
 export function StopYoloMode() {
   return window['go']['app']['App']['StopYoloMode']();
 }
 
 export function TakeOver(arg1, arg2, arg3) {
   return window['go']['app']['App']['TakeOver'](arg1, arg2, arg3);
+}
+
+export function TaskTrack(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['TaskTrack'](arg1, arg2, arg3, arg4);
+}
+
+export function TaskTracks() {
+  return window['go']['app']['App']['TaskTracks']();
+}
+
+export function TaskUntrack(arg1) {
+  return window['go']['app']['App']['TaskUntrack'](arg1);
 }
 
 export function TestChannel(arg1) {

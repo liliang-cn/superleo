@@ -13,6 +13,7 @@ import { ViewKey } from "./types";
 export const PATHS: Record<ViewKey, string> = {
   home: "/",
   chat: "/chat",
+  conversations: "/conversations",
   stats: "/stats",
   hive: "/hive",
   agents: "/agents",

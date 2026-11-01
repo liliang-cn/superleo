@@ -1,0 +1,71 @@
+/* One page for every conversation: a list with who/search above it, and the
+   open thread beside it. Narrow, the thread replaces the list. */
+.cv2 { flex: 1; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(280px, 360px) 1fr; container-type: inline-size; color: var(--text-0); }
+.cv2-list { min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+.cv2-head { padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px; }
+.cv2-head h1 { margin: 0; font-size: 20px; font-weight: 650; }
+.cv2-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 34px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-1); color: var(--text-2); }
+.cv2-search:focus-within { border-color: var(--accent); }
+.cv2-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text-0); font: inherit; font-size: 13px; }
+.cv2-search button { display: grid; place-items: center; border: 0; background: transparent; color: var(--text-2); cursor: pointer; padding: 2px; }
+.cv2-who { display: flex; flex-wrap: wrap; gap: 6px; }
+.cv2-who button { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 13px; border: 1px solid var(--border); background: var(--bg-1); color: var(--text-1); font: inherit; font-size: 12px; cursor: pointer; }
+.cv2-who button i { font-style: normal; color: var(--text-2); font-size: 11px; }
+.cv2-who button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.cv2-rows { flex: 1; min-height: 0; overflow: auto; padding: 4px 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.cv2-row { display: flex; gap: 10px; align-items: flex-start; text-align: left; width: 100%; padding: 10px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.cv2-row:hover { background: var(--bg-2); }
+.cv2-row.on { background: var(--accent-soft); border-color: var(--accent); }
+.cv2-ico { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--bg-2); color: var(--text-1); }
+.cv2-row.k-queen .cv2-ico { background: var(--accent-soft); color: var(--accent); }
+.cv2-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cv2-top { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 13px; }
+.cv2-top b { font-weight: 600; white-space: nowrap; }
+.cv2-top i { font-style: normal; color: var(--text-2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cv2-kind { font-size: 10px; color: var(--text-2); border: 1px solid var(--border); border-radius: 6px; padding: 0 5px; line-height: 15px; white-space: nowrap; }
+.cv2-top em { margin-left: auto; font-style: normal; color: var(--text-2); font-size: 11px; white-space: nowrap; }
+.cv2-live { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.cv2-title { font-size: 13px; color: var(--text-0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv2-last { font-size: 12px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv2-empty, .cv2-none { padding: 40px 16px; text-align: center; color: var(--text-2); font-size: 13px; }
+.cv2-none { display: grid; place-items: center; height: 100%; }
+
+.cv2-thread { min-width: 0; min-height: 0; display: flex; }
+.cv2-pane { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.cv2-phead { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.cv2-phead > div { flex: 1; min-width: 0; }
+.cv2-phead b { display: block; font-size: 15px; font-weight: 600; }
+.cv2-phead b i { font-style: normal; font-weight: 400; color: var(--text-2); font-size: 12px; }
+.cv2-phead small { display: block; color: var(--text-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv2-back { display: none; }
+.cv2-back, .cv2-del { align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--bg-1); color: var(--text-1); border-radius: 8px; padding: 6px 8px; cursor: pointer; font: inherit; font-size: 12px; }
+.cv2-del { display: inline-flex; }
+.cv2-del.arm { color: var(--red); border-color: var(--red); }
+.cv2-msgs { flex: 1; min-height: 0; overflow: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.cv2-u { align-self: flex-end; max-width: 80%; background: var(--accent-soft); border-radius: 12px; padding: 8px 12px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.cv2-a { align-self: flex-start; max-width: 92%; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.cv2-a.bad { color: var(--red); }
+.cv2-u small, .cv2-a small { display: block; color: var(--text-2); font-size: 11px; margin-top: 4px; }
+.cv2-busy { color: var(--text-2); }
+.cv2-steps { font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.cv2-steps summary { cursor: pointer; }
+.cv2-steps div { font-family: var(--font-mono); padding-left: 10px; overflow-wrap: anywhere; }
+.cv2-say { display: flex; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--border); }
+.cv2-say input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-1); color: var(--text-0); font: inherit; font-size: 14px; outline: 0; }
+.cv2-say input:focus { border-color: var(--accent); }
+.cv2-say button { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; border: 0; background: var(--accent); color: var(--on-accent); cursor: pointer; }
+.cv2-say button:disabled { opacity: 0.4; cursor: default; }
+.cv2-readonly { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 18px 16px; border-top: 1px solid var(--border); color: var(--text-2); font-size: 13px; }
+.cv2-readonly button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+
+/* Narrow: one pane at a time. */
+@container (max-width: 760px) {
+  .cv2 { grid-template-columns: 1fr; }
+  .cv2.has-open .cv2-list { display: none; }
+  .cv2:not(.has-open) .cv2-thread { display: none; }
+  .cv2-list { border-right: 0; }
+  .cv2-back { display: inline-flex; }
+}
+
+/* In the 3D world the page is a panel of its own width. */
+.dk-world .dk-page.page-conversations { width: 600px; }

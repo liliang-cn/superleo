@@ -22,6 +22,8 @@ export function AlarmRings(arg1:number):Promise<any>;
 
 export function AnswerCCPermission(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function AskIn(arg1:string,arg2:string,arg3:string,arg4:string):Promise<app.DirectReply>;
+
 export function AskRemoteAgent(arg1:string,arg2:string):Promise<backend.RemoteResult>;
 
 export function AskRemoteAgentAs(arg1:string,arg2:string,arg3:string):Promise<backend.RemoteResult>;
@@ -83,6 +85,10 @@ export function ClearNotifications():Promise<Record<string, any>>;
 export function CodingSessionLog(arg1:string,arg2:string,arg3:string):Promise<app.SessionLog>;
 
 export function CodingSessions():Promise<Array<app.CodingSession>>;
+
+export function ConversationThread(arg1:string):Promise<app.ConversationThread>;
+
+export function Conversations(arg1:app.ConversationFilter):Promise<app.ConversationList>;
 
 export function CreateIntegrationToken(arg1:string):Promise<app.NewIntegrationToken>;
 
@@ -440,9 +446,17 @@ export function StartQueenCLIRun(arg1:app.QueenRunRequest):Promise<app.CLIRun>;
 
 export function StartYoloMode():Promise<Record<string, any>>;
 
+export function StopHiveTask(arg1:string):Promise<string>;
+
 export function StopYoloMode():Promise<Record<string, any>>;
 
 export function TakeOver(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function TaskTrack(arg1:string,arg2:number,arg3:number,arg4:boolean):Promise<Record<string, any>>;
+
+export function TaskTracks():Promise<Record<string, any>>;
+
+export function TaskUntrack(arg1:string):Promise<Record<string, any>>;
 
 export function TestChannel(arg1:string):Promise<app.ChannelTestResult>;
 
