@@ -20,6 +20,10 @@ type ChatSessionInfo struct {
 	Title     string `json:"title"`
 	Turns     int    `json:"turns"`
 	UpdatedAt string `json:"updated_at"`
+	// Last is the final thing said, one line; Text is everything said, for
+	// searching a list. Text never goes over the wire.
+	Last string `json:"last,omitempty"`
+	Text string `json:"-"`
 }
 
 // ChatTurn is a single visible message of a past conversation.
@@ -107,9 +111,14 @@ func (s *Service) Sessions(limit int) []ChatSessionInfo {
 		// a question nor an answer, and a conversation of nothing but context is
 		// not a conversation.
 		said := 0
+		last := ""
+		var text strings.Builder
 		for _, t := range turns {
 			if t.Kind == "" {
 				said++
+				last = t.Content
+				text.WriteString(t.Content)
+				text.WriteByte('\n')
 			}
 		}
 		if said == 0 {
@@ -120,6 +129,8 @@ func (s *Service) Sessions(limit int) []ChatSessionInfo {
 			Title:     sessionTitle(turns),
 			Turns:     said,
 			UpdatedAt: sess.UpdatedAt.Format(time.RFC3339),
+			Last:      previewLine(last, 160),
+			Text:      text.String(),
 		})
 	}
 
@@ -457,4 +468,17 @@ func sessionTitle(turns []ChatTurn) string {
 		return title
 	}
 	return "Untitled"
+}
+
+// previewLine is the first non-empty line of s, cut to n runes.
+func previewLine(s string, n int) string {
+	for _, l := range strings.Split(s, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			if r := []rune(l); len(r) > n {
+				return string(r[:n]) + "…"
+			}
+			return l
+		}
+	}
+	return ""
 }
