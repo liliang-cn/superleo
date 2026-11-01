@@ -132,6 +132,8 @@ func (a *App) runCodingAgent(ctx context.Context, name, prompt, cwd, cont string
 		span.End("failed", err)
 		return fail(err.Error())
 	}
+	// Which run carries the order, so a restart can find it again.
+	a.tasks().SetRun(boardTaskFrom(ctx), run.ID)
 	var r CLIRun
 	select {
 	case r = <-done:

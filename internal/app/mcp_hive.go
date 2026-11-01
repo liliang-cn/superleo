@@ -371,12 +371,7 @@ func (a *App) hiveTaskList(limit int, runningOnly bool) map[string]any {
 	limit = min(limit, 60)
 	board := a.tasks()
 	tasks := []taskLine{}
-	recent := board.Recent()
-	for i := len(recent) - 1; i >= 0 && len(tasks) < limit; i-- {
-		t := recent[i]
-		if runningOnly && t.State != backend.TaskRunning {
-			continue
-		}
+	for _, t := range board.List(limit, runningOnly) {
 		end := t.EndedAt
 		if end.IsZero() {
 			end = time.Now()
@@ -458,12 +453,12 @@ func (a *App) resolveTaskID(id string) (string, error) {
 		add(j.id)
 	}
 	st.mu.Unlock()
-	for _, t := range a.tasks().Recent() {
-		add(t.ID)
+	for _, full := range a.tasks().Resolve(id) {
+		add(full)
 	}
 	switch len(matches) {
 	case 0:
-		return "", fmt.Errorf("no delegation or task %q here: only recent ones are kept, and not across a restart", id)
+		return "", fmt.Errorf("no delegation or task %q here: orders are kept for a month, delegations only while this runs", id)
 	case 1:
 		return matches[0], nil
 	}
@@ -489,7 +484,7 @@ func (a *App) stopTarget(id string) (stop func() error, what string, err error) 
 	t, ok := board.Get(id)
 	switch {
 	case !ok:
-		return nil, "", fmt.Errorf("no delegation or task %q here: only recent ones are kept, and not across a restart", id)
+		return nil, "", fmt.Errorf("no delegation or task %q here: orders are kept for a month, delegations only while this runs", id)
 	case t.State != backend.TaskRunning:
 		return nil, "", fmt.Errorf("the task already ended: %s", t.State)
 	case !board.Stoppable(id):
@@ -548,10 +543,11 @@ func addHiveMCPTools(s *mcp.Server, app *App, caller string) {
 		Title: "Hive tasks and delegations",
 		Description: "What the hive is doing and has done. Without id: the recent delegations (superleo_hive_delegate calls: " +
 			"state, pieces done and failed, workers) and the recent task board orders (each order one worker carries out: " +
-			"worker, direction, state running/done/failed/cancelled, current phase and tool, timings, the start of the prompt " +
+			"worker, direction, state running/done/failed/cancelled/lost, current phase and tool, timings, the start of the prompt " +
 			"and result, and whether it can be stopped from here), newest first. With id: the whole record of that " +
-			"delegation (every piece's report and every tool call) or task (full prompt, full result, every step). Only " +
-			"recent ones are kept, in memory.",
+			"delegation (every piece's report and every tool call) or task (full prompt, full result, every step). Orders " +
+			"are kept for a month and survive a restart (an order a restart lost track of is state lost, with why); " +
+			"delegations only while SuperLeo runs.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in hiveTasksIn) (*mcp.CallToolResult, any, error) {
 		if id := strings.TrimSpace(in.ID); id != "" {

@@ -436,7 +436,10 @@ func (r *RemoteRunner) Run(ctx context.Context, name, prompt string) (res Remote
 		}
 		// The id is made here, before the order leaves, so the worker can be
 		// told it and the same UUID names the order on both sides.
-		id := NewTaskID()
+		id := TaskIDFrom(ctx)
+		if id == "" {
+			id = NewTaskID()
+		}
 		r.board.StartAs(id, name, from, dir, prompt)
 		r.board.InSession(id, ChatSessionFrom(ctx))
 		// Its own context, so this one order can be stopped by its id.

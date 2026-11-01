@@ -131,12 +131,12 @@ func (a *App) hiveAgents() map[string]backend.RemoteAgent {
 }
 
 // HiveTaskDetail is one order by its UUID, whole: the full prompt, the full
-// answer, and every step it went through. Only the last few orders are kept, in
-// memory, so an old id — or one from before a restart — comes back not found.
+// answer, and every step it went through. Orders are kept for a month, restart
+// or not; an older id comes back not found.
 func (a *App) HiveTaskDetail(id string) map[string]any {
 	t, ok := a.tasks().Get(strings.TrimSpace(id))
 	if !ok {
-		return map[string]any{"ok": false, "error": "no such task here: only recent orders are kept, and not across a restart"}
+		return map[string]any{"ok": false, "error": "no such task here: orders are kept for a month"}
 	}
 	return map[string]any{"ok": true, "task": t}
 }
@@ -546,6 +546,7 @@ func (a *App) registerHiveTools(svc *backend.Service, cfg *backend.Settings) {
 		a.registerMailTools(inner)
 		a.registerDelegateTool(inner, h.DelegationMode())
 		a.registerQueenOrderTools(inner)
+		a.registerQueenTrackTools(inner)
 		inner.AddToolWithMetadata("hive_spawn",
 			"Make more workers for this hive. Returns once they have joined and are live, and says who they are."+
 				" Use it when there is more to do than the workers you have can do at once, and check hive_members first:"+

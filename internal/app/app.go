@@ -203,6 +203,9 @@ type App struct {
 	// backend/hive_tasks.go.
 	hiveBoard     *backend.TaskBoard
 	hiveBoardOnce sync.Once
+	// taskBoard is the board's file and the checks left on long orders; see
+	// app_hive_taskboard.go.
+	taskBoard taskBoardState
 	// hiveReports carries a worker's dealings with its peers to the queen, in
 	// order, off the path of whatever produced them.
 	hiveReports    chan any
@@ -360,6 +363,8 @@ func (a *App) boot() {
 	a.rebuild()
 	// The coding runs that were going when SuperLeo last stopped.
 	a.recoverCLIRuns()
+	// The orders the queen had out when she last stopped, and what became of them.
+	a.openTaskBoard()
 	// Hermes's environment, built now rather than in someone's first turn.
 	a.warmHermes("start")
 
@@ -374,6 +379,7 @@ func (a *App) boot() {
 		a.startScheduler()
 		a.startTelegram()
 		a.startHive()
+		a.startTrackers()
 		a.startAlarmWatch()
 		a.lookForRemoteAgents()
 	}
@@ -430,6 +436,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	// her stops: her members wait instead of electing another.
 	a.announceRestart()
 	a.stopHive()
+	a.stopTaskBoard()
 	a.stopLocalHive()
 	a.stopAlarmWatch()
 	a.stopScheduler()

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -20,9 +22,11 @@ import (
 // given. Both publish each change as it happens, which is what lets the Hive
 // panel show work in motion instead of a list that was true a few seconds ago.
 //
-// It is a board and not a log on purpose. Only the last few tasks are kept, in
-// memory: a hive's history belongs to the sessions the workers ran, and a
-// second copy here would be a second place for it to be wrong.
+// It is a board and not a log on purpose. The last few tasks are held in
+// memory; with a store attached (AttachStore) every change is also written to
+// disk, so a restart finds the orders again and a month of them can be asked
+// about. A hive's history still belongs to the sessions the workers ran, and
+// a second copy of those here would be a second place for it to be wrong.
 
 // HiveSessionPrefix marks a conversation a worker opened because the queen
 // asked. It is how a worker knows an order came from the hive rather than from
@@ -131,6 +135,9 @@ type HiveTask struct {
 	Result    string      `json:"result,omitempty"`
 	Error     string      `json:"error,omitempty"`
 	Events    []TaskEvent `json:"events,omitempty"`
+	// Run is the coding run carrying the order out, when it went to a coding
+	// agent: what lets a restarted queen find the run again.
+	Run string `json:"run,omitempty"`
 	// Live is the tail of what the task is doing right now — the tool being
 	// called with its arguments, how a call came out, the words being written —
 	// for the hologram over the worker. Only while running, only the last
@@ -151,7 +158,17 @@ type TaskBoard struct {
 	// id: an order it gave (the run's context) or one it is carrying out (the
 	// turn). Dropped when the task settles.
 	stops map[string]func()
+	// store, when attached, has every change written to it. Progress goes out
+	// on a short debounce (dirty, flushT); a start and an end go at once.
+	store   *TaskStore
+	dirty   map[string]bool
+	flushT  *time.Timer
+	pruneAt time.Time
 }
+
+// saveEvery is how long a progress change waits to be written, so a worker
+// calling tools quickly is a write a second and not a write a call.
+var saveEvery = time.Second
 
 // ErrTaskStopped is the cause a task's context carries when it was stopped by
 // request, which is how a delegation tells "stop this" from "this worker
@@ -179,6 +196,21 @@ func (b *TaskBoard) Start(worker, dir, prompt string) string {
 
 // NewTaskID makes the UUID an order will be known by.
 func NewTaskID() string { return uuid.NewString() }
+
+type taskIDKey struct{}
+
+// WithTaskID has the order sent under ctx go out under id instead of a new
+// one, for a caller that has to know the id before the order is answered (a
+// tracker sending a lost order again).
+func WithTaskID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, taskIDKey{}, id)
+}
+
+// TaskIDFrom is the id WithTaskID set, or "".
+func TaskIDFrom(ctx context.Context) string {
+	s, _ := ctx.Value(taskIDKey{}).(string)
+	return s
+}
 
 // TaskIDFromSession recovers the order's id from a worker's session name, and
 // says whether there was one. A session that merely starts with the prefix but
@@ -225,6 +257,7 @@ func (b *TaskBoard) StartAs(id, worker, from, dir, prompt string) string {
 	b.trimLocked()
 	c := t.copy()
 	b.mu.Unlock()
+	b.save(c, true)
 	b.publish(c)
 	return t.ID
 }
@@ -369,6 +402,7 @@ func (b *TaskBoard) update(id string, f func(*HiveTask) bool) {
 	}
 	b.mu.Unlock()
 	if c != nil {
+		b.save(*c, c.State != TaskRunning)
 		b.publish(*c)
 	}
 }
@@ -418,13 +452,17 @@ func (b *TaskBoard) Get(id string) (HiveTask, bool) {
 		return HiveTask{}, false
 	}
 	b.mu.Lock()
-	defer b.mu.Unlock()
 	for _, t := range b.tasks {
 		if t.ID == id {
-			return t.copy(), true
+			c := t.copy()
+			b.mu.Unlock()
+			return c, true
 		}
 	}
-	return HiveTask{}, false
+	st := b.store
+	b.mu.Unlock()
+	// Older than the board holds: the store has it, if one is attached.
+	return st.Get(id)
 }
 
 // OnStop says how a running task is stopped. Only the instance running the
@@ -475,10 +513,16 @@ func (b *TaskBoard) Stop(id string) error {
 	if found != nil {
 		state = found.State
 	}
+	st := b.store
 	b.mu.Unlock()
+	if found == nil {
+		if old, ok := st.Get(id); ok {
+			found, state = &old, old.State
+		}
+	}
 	switch {
 	case found == nil:
-		return errors.New("no such task here: only recent orders are kept, and not across a restart")
+		return errors.New("no such task here: it is not on the board, and the board keeps a month")
 	case state != TaskRunning:
 		return fmt.Errorf("the task already ended: %s", state)
 	case stop == nil:
@@ -525,12 +569,15 @@ func (b *TaskBoard) Ingest(in HiveTask) {
 		if t.ID != in.ID {
 			continue
 		}
-		if t.State != TaskRunning {
+		// A lost order is one nobody could find; the worker's own word on it
+		// is better than that and replaces it.
+		if t.State != TaskRunning && t.State != TaskLost {
 			b.mu.Unlock()
 			return
 		}
 		*b.tasks[i] = in
 		b.mu.Unlock()
+		b.save(in, in.State != TaskRunning)
 		b.publish(in)
 		return
 	}
@@ -538,6 +585,7 @@ func (b *TaskBoard) Ingest(in HiveTask) {
 	b.tasks = append(b.tasks, &cp)
 	b.trimLocked()
 	b.mu.Unlock()
+	b.save(in, in.State != TaskRunning)
 	b.publish(in)
 }
 
@@ -662,4 +710,238 @@ func LiveResult(result any) string {
 	}
 	b, _ := json.Marshal(result)
 	return "◂ " + clip(string(b), 100) + "\n"
+}
+
+// ---- on disk ----
+
+// AttachStore makes the board persistent: what the store holds is loaded back
+// (every running order and the most recent finished ones), and from here on
+// every change is written to it. It returns the orders that were running when
+// the store was last written — the ones whose fate is not known any more, for
+// the caller to follow or mark lost. Called once, before use.
+func (b *TaskBoard) AttachStore(s *TaskStore) []HiveTask {
+	if b == nil || s == nil {
+		return nil
+	}
+	loaded := s.Active(boardKeep)
+	s.Prune(time.Now())
+	s.PruneTrackers(time.Now())
+	b.mu.Lock()
+	b.store = s
+	b.pruneAt = time.Now()
+	have := map[string]bool{}
+	var before []HiveTask
+	for _, t := range b.tasks {
+		have[t.ID] = true
+		before = append(before, t.copy())
+	}
+	var running []HiveTask
+	for i := range loaded {
+		t := loaded[i]
+		if have[t.ID] {
+			continue
+		}
+		b.tasks = append(b.tasks, &t)
+		if t.State == TaskRunning {
+			running = append(running, t.copy())
+		}
+	}
+	sort.SliceStable(b.tasks, func(i, j int) bool { return b.tasks[i].StartedAt.Before(b.tasks[j].StartedAt) })
+	b.mu.Unlock()
+	// What was on the board before the store came is written down too.
+	for _, t := range before {
+		_ = s.Put(t)
+	}
+	return running
+}
+
+// Store is the attached store, or nil.
+func (b *TaskBoard) Store() *TaskStore {
+	if b == nil {
+		return nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.store
+}
+
+// save writes a task down: at once, or on the debounce when it is only
+// progress. Not called with the lock held.
+func (b *TaskBoard) save(t HiveTask, now bool) {
+	b.mu.Lock()
+	st := b.store
+	if st == nil {
+		b.mu.Unlock()
+		return
+	}
+	if !now {
+		if b.dirty == nil {
+			b.dirty = map[string]bool{}
+		}
+		b.dirty[t.ID] = true
+		if b.flushT == nil {
+			b.flushT = time.AfterFunc(saveEvery, b.Flush)
+		}
+		b.mu.Unlock()
+		return
+	}
+	delete(b.dirty, t.ID)
+	prune := time.Since(b.pruneAt) > 6*time.Hour
+	if prune {
+		b.pruneAt = time.Now()
+	}
+	b.mu.Unlock()
+	if err := st.Put(t); err != nil {
+		slog.Warn("task board: could not write a task", "task", t.ID, "error", err)
+	}
+	if prune {
+		st.Prune(time.Now())
+		st.PruneTrackers(time.Now())
+	}
+}
+
+// Flush writes every task whose progress is waiting on the debounce. Called
+// by the timer, and on the way out.
+func (b *TaskBoard) Flush() {
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	st := b.store
+	var out []HiveTask
+	for _, t := range b.tasks {
+		if b.dirty[t.ID] {
+			out = append(out, t.copy())
+		}
+	}
+	b.dirty = nil
+	if b.flushT != nil {
+		b.flushT.Stop()
+		b.flushT = nil
+	}
+	b.mu.Unlock()
+	for _, t := range out {
+		if err := st.Put(t); err != nil {
+			slog.Warn("task board: could not write a task", "task", t.ID, "error", err)
+		}
+	}
+}
+
+// List is the orders newest first, from the store when there is one and from
+// memory otherwise; a task in memory is the fresher copy of itself.
+func (b *TaskBoard) List(limit int, runningOnly bool) []HiveTask {
+	if b == nil {
+		return nil
+	}
+	b.mu.Lock()
+	st := b.store
+	mem := make(map[string]HiveTask, len(b.tasks))
+	for _, t := range b.tasks {
+		mem[t.ID] = t.copy()
+	}
+	b.mu.Unlock()
+	var out []HiveTask
+	seen := map[string]bool{}
+	for _, t := range st.List(limit+len(mem), runningOnly) {
+		if m, ok := mem[t.ID]; ok {
+			t = m
+		}
+		if runningOnly && t.State != TaskRunning {
+			continue
+		}
+		seen[t.ID] = true
+		out = append(out, t)
+	}
+	for id, t := range mem {
+		if !seen[id] && (!runningOnly || t.State == TaskRunning) {
+			out = append(out, t)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].StartedAt.After(out[j].StartedAt) })
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
+// Resolve is the ids that start with prefix, on the board or in the store.
+func (b *TaskBoard) Resolve(prefix string) []string {
+	if b == nil || prefix == "" {
+		return nil
+	}
+	b.mu.Lock()
+	st := b.store
+	seen := map[string]bool{}
+	var out []string
+	for _, t := range b.tasks {
+		if strings.HasPrefix(t.ID, prefix) {
+			seen[t.ID] = true
+			out = append(out, t.ID)
+		}
+	}
+	b.mu.Unlock()
+	for _, id := range st.Prefixed(prefix, 20) {
+		if !seen[id] {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// MarkLost settles a running order nobody can find, with why. Like Finish, only
+// a running task changes.
+func (b *TaskBoard) MarkLost(id, why string) {
+	b.update(id, func(t *HiveTask) bool {
+		delete(b.stops, id)
+		if t.State != TaskRunning {
+			return false
+		}
+		t.State, t.Phase, t.Tool, t.Live = TaskLost, "", "", ""
+		t.EndedAt = time.Now()
+		t.Error = clip(why, errorKeep)
+		t.note(TaskLost, "")
+		return true
+	})
+}
+
+// SetRun notes the coding run an order went to.
+func (b *TaskBoard) SetRun(id, run string) {
+	if run == "" {
+		return
+	}
+	b.update(id, func(t *HiveTask) bool {
+		if t.Run == run {
+			return false
+		}
+		t.Run = run
+		return true
+	})
+}
+
+// Mirror takes a worker's own record of an order a restart left this side
+// unsure of: how far it has got while it runs, how it ended once it has. The
+// order keeps its start and its prompt, which are this side's.
+func (b *TaskBoard) Mirror(id string, w HiveTask) {
+	b.update(id, func(t *HiveTask) bool {
+		if t.State != TaskRunning {
+			return false
+		}
+		if w.State != "" && w.State != TaskRunning {
+			delete(b.stops, id)
+			t.State, t.Phase, t.Tool, t.Live = w.State, "", "", ""
+			t.EndedAt = w.EndedAt
+			if t.EndedAt.IsZero() {
+				t.EndedAt = time.Now()
+			}
+			t.Result, t.Error = clip(w.Result, resultKeep), clip(w.Error, errorKeep)
+			t.note(w.State, "")
+			return true
+		}
+		if t.Phase == w.Phase && t.Tool == w.Tool && t.Tools == w.Tools {
+			return false
+		}
+		t.Phase, t.Tool, t.Tools = w.Phase, w.Tool, w.Tools
+		t.note(w.Phase, w.Tool)
+		return true
+	})
 }
