@@ -331,7 +331,7 @@ export default function StatsView() {
                 <div className="cr-task-h">
                   <span className={`cr-task-led${t.running ? " on" : t.done ? " done" : t.stop ? " off" : ""}`} />
                   <span className="cr-task-goal" title={t.goal}>{short(t.goal || t.taskId, 64)}</span>
-                  <span className="cr-tag">{t.running ? ["context", "model", "tools", "lint", "checkpoint", "segment"][stage] : t.done ? "finished" : t.stop || "idle"}</span>
+                  <span className="cr-tag">{t.running ? ["context", "model", "tools", "lint", "checkpoint", "segment"][stage] : translate(t.done ? "finished" : t.stop || "idle")}</span>
                 </div>
                 <div className="cr-task-chips"><RunChips r={t} /></div>
                 <div className="cr-task-segs">
@@ -351,9 +351,9 @@ export default function StatsView() {
                   <span><b>{t.segments}</b>/{t.maxSegments} seg</span>
                 </div>
                 <div className="cr-task-actions" onClick={(e) => e.stopPropagation()}>
-                  <span role="button" className="cr-btn tiny" onClick={() => setTraceId(t.taskId)} title="Every event this task emitted, one per row"><Terminal size={10} />Trace</span>
+                  <span role="button" className="cr-btn tiny" onClick={() => setTraceId(t.taskId)} title="Every event this task emitted, one per row"><Terminal size={10} />{translate("Trace")}</span>
                   {t.running && <span role="button" className="cr-btn tiny" onClick={() => LongRunStop(t.taskId)}><Square size={10} />Stop</span>}
-                  {!t.running && !t.done && <span role="button" className="cr-btn tiny" onClick={() => LongRunStart(t.goal, segs, rounds, minutes, 0, t.taskId, unattended).then(loadList)}><RotateCcw size={10} />Resume</span>}
+                  {!t.running && !t.done && <span role="button" className="cr-btn tiny" onClick={() => LongRunStart(t.goal, segs, rounds, minutes, 0, t.taskId, unattended).then(loadList)}><RotateCcw size={10} />{translate("Resume")}</span>}
                 </div>
               </button>
             );
