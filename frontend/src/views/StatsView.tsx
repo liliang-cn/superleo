@@ -15,6 +15,7 @@ import HiveDisc from "../components/HiveDisc";
 import RunTracePanel from "../components/RunTracePanel";
 import { useTween } from "../lib/useTween";
 import { useDaylight } from "../lib/useDaylight";
+import { translate, useI18n } from "../lib/i18n";
 
 /**
  * The control room.
@@ -37,13 +38,13 @@ interface SegmentStat { index: number; sessionId: string; startedAt: string; end
 interface LogLine { at: string; kind: string; text: string }
 interface PlanItem { text: string; done: boolean; note?: string }
 interface TaskState {
-  taskId: string; goal: string; model: string; startedAt: string; endedAt?: string; done: boolean; running: boolean; stop?: string; final?: string; maxSegments: number;
+  taskId: string; goal: string; model: string; startedAt: string; endedAt?: string; done: boolean; running: boolean; state?: string; resumes?: number; resumedAt?: string; interruptedAt?: string; stop?: string; final?: string; maxSegments: number;
   segments: SegmentStat[]; rounds: RoundStat[]; plan: PlanItem[]; toolCounts: Record<string, number>; toolCalls: number; toolErrors: number;
   lints: Record<string, number>; lintRetries: number; lintBlocks: number; compactions: number; retries: number; checkpoints: number; errors: number;
   totalTokens: number; totalCached: number; log: LogLine[];
 }
 interface TaskSummary {
-  taskId: string; goal: string; model: string; startedAt: string; endedAt?: string; running: boolean; done: boolean; stop?: string;
+  taskId: string; goal: string; model: string; startedAt: string; endedAt?: string; running: boolean; done: boolean; state?: string; resumes?: number; resumedAt?: string; interruptedAt?: string; stop?: string;
   segments: number; maxSegments: number; segmentOpen: boolean; rounds: number; lastTokens: number; lastTools: number;
   totalTokens: number; totalCached: number; rejected: number; errors: number; planDone: number; planTotal: number; spark: number[];
 }
@@ -74,6 +75,33 @@ const elapsed = (from: string, to?: string) => {
   return h ? `${h}h ${String(m).padStart(2, "0")}m` : m ? `${m}m ${String(r).padStart(2, "0")}s` : `${r}s`;
 };
 
+// A long run's state and how many restarts it has been through, as chips.
+// Interrupted is a run a restart cut off that is not (or not yet) being
+// carried on; the resumed chip says it was picked back up, and when.
+const STATE_TONE: Record<string, string> = { running: "cyan", done: "lime", failed: "rose", stopped: "", interrupted: "amber" };
+export const stateLabel = (s: string) =>
+  s === "interrupted" ? translate("Interrupted") : s === "done" ? translate("Done") : s === "failed" ? translate("Failed")
+    : s === "stopped" ? translate("Stopped") : translate("Running");
+const clockOf = (at?: string) => (at && new Date(at).getTime() ? hms(at) : "");
+function RunChips({ r }: { r: { state?: string; running: boolean; done: boolean; resumes?: number; resumedAt?: string; stop?: string } }) {
+  useI18n();
+  const state = r.state || (r.running ? "running" : r.done ? "done" : r.stop === "cancelled" ? "stopped" : "");
+  const n = r.resumes ?? 0;
+  return (
+    <>
+      {state && <span className={`cr-tag cr-state ${STATE_TONE[state] ?? ""}`} data-state={state}>{stateLabel(state)}</span>}
+      {n > 0 && <span className="cr-tag cr-state cyan" data-resumed={n} title={clockOf(r.resumedAt)}>{translate("Resumed ×{n}", { n })}{clockOf(r.resumedAt) ? ` · ${clockOf(r.resumedAt)}` : ""}</span>}
+    </>
+  );
+}
+// The narration of a restart, in the reader's language; the rest of the log
+// is the run's own words.
+function logText(l: LogLine) {
+  if (l.kind === "interrupt") return translate("Cut off by a restart");
+  if (l.kind === "resume") { const m = /#(\d+)/.exec(l.text); return m ? translate("Picked back up (#{n})", { n: m[1] }) : translate("Picked back up"); }
+  return l.text;
+}
+
 // Numbers only, below the reactor. Every picture this page had — the
 // sparkline in a card, the heat grid of turns, the cache bars, the fleet
 // cards' little polylines — moved into the wheel or became a figure. One
@@ -94,6 +122,7 @@ function Num({ v, fmt = fmtK }: { v: number; fmt?: (n: number) => string }) {
 }
 
 export default function StatsView() {
+  useI18n();
   const [dash, setDash] = useState<DashData | null>(null);
   const [graph, setGraph] = useState<{ url?: string; nodes?: number; edges?: number } | null>(null);
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
@@ -147,7 +176,7 @@ export default function StatsView() {
   useEffect(() => {
     let timer: number | undefined;
     const off = EventsOn("longrun:tick", (p: { taskId?: string; kind?: string }) => {
-      if (p?.kind === "begin" || p?.kind === "finish") loadDash();
+      if (p?.kind === "begin" || p?.kind === "finish" || p?.kind === "interrupted" || p?.kind === "resumed") loadDash();
       if (timer) window.clearTimeout(timer);
       timer = window.setTimeout(() => { loadList(); if (p?.taskId && p.taskId === taskId) loadState(taskId); }, 180);
     });
@@ -304,6 +333,7 @@ export default function StatsView() {
                   <span className="cr-task-goal" title={t.goal}>{short(t.goal || t.taskId, 64)}</span>
                   <span className="cr-tag">{t.running ? ["context", "model", "tools", "lint", "checkpoint", "segment"][stage] : t.done ? "finished" : t.stop || "idle"}</span>
                 </div>
+                <div className="cr-task-chips"><RunChips r={t} /></div>
                 <div className="cr-task-segs">
                   {Array.from({ length: Math.max(1, t.maxSegments, t.segments) }).map((_, i) => <i key={i} className={i < t.segments - (t.segmentOpen ? 1 : 0) ? "done" : i === t.segments - 1 && t.segmentOpen ? "on" : ""} />)}
                 </div>
@@ -337,6 +367,7 @@ export default function StatsView() {
           {/* ── segment strip (focused task) ── */}
           <section className="cr-segs" style={{ ["--hue" as string]: hueFor(st.taskId) }}>
             <span className="cr-eyebrow cr-segs-meta"><span className="cr-task-led on hue" /><GitBranch size={12} />{short(st.goal, 40)} · {elapsed(st.startedAt, st.endedAt)} · ctx {fmtK(d.last?.tokens ?? 0)}</span>
+            <span className="cr-task-chips detail"><RunChips r={st} /></span>
             {Array.from({ length: Math.max(st.maxSegments, st.segments.length) || 1 }).map((_, i) => {
               const s = st.segments.find((x) => x.index === i);
               const cls = !s ? "" : s.err ? "failed" : s.endedAt ? "done" : "active";
@@ -392,7 +423,7 @@ export default function StatsView() {
               <div className="cr-panel-h"><ScrollText size={13} /><span className="cr-eyebrow">Activity</span><span className="cr-tag">{st.log.length}</span></div>
               <div className="cr-log" ref={logRef}>
                 {st.log.length === 0 && <div className="cr-dim">waiting for the first turn…</div>}
-                {st.log.slice(-160).map((l, i) => <div key={i} className={`cr-line ${l.kind}`}><span className="at">{hms(l.at)}</span><span className="k">{l.kind}</span>{l.text}</div>)}
+                {st.log.slice(-160).map((l, i) => <div key={i} className={`cr-line ${l.kind}`}><span className="at">{hms(l.at)}</span><span className="k">{l.kind}</span>{logText(l)}</div>)}
               </div>
             </div>
             <div className="cr-panel">

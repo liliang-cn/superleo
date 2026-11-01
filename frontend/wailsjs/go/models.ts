@@ -4326,6 +4326,10 @@ export namespace backend {
 	    endedAt?: string;
 	    done: boolean;
 	    running: boolean;
+	    state?: string;
+	    resumes?: number;
+	    resumedAt?: string;
+	    interruptedAt?: string;
 	    stop?: string;
 	    final?: string;
 	    maxSegments: number;
@@ -4357,6 +4361,10 @@ export namespace backend {
 	        this.model = source["model"];
 	        this.startedAt = source["startedAt"];
 	        this.endedAt = source["endedAt"];
+	        this.state = source["state"];
+	        this.resumes = source["resumes"];
+	        this.resumedAt = source["resumedAt"];
+	        this.interruptedAt = source["interruptedAt"];
 	        this.done = source["done"];
 	        this.running = source["running"];
 	        this.stop = source["stop"];
@@ -4406,6 +4414,10 @@ export namespace backend {
 	    endedAt?: string;
 	    running: boolean;
 	    done: boolean;
+	    state?: string;
+	    resumes?: number;
+	    resumedAt?: string;
+	    interruptedAt?: string;
 	    stop?: string;
 	    segments: number;
 	    maxSegments: number;
@@ -4432,6 +4444,10 @@ export namespace backend {
 	        this.model = source["model"];
 	        this.startedAt = source["startedAt"];
 	        this.endedAt = source["endedAt"];
+	        this.state = source["state"];
+	        this.resumes = source["resumes"];
+	        this.resumedAt = source["resumedAt"];
+	        this.interruptedAt = source["interruptedAt"];
 	        this.running = source["running"];
 	        this.done = source["done"];
 	        this.stop = source["stop"];

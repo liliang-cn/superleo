@@ -61,6 +61,8 @@ type longRecord struct {
 	Stop string `json:"stop,omitempty"`
 	// Resumes counts how many times it has been picked up after a restart.
 	Resumes int `json:"resumes"`
+	// ResumedAt is when it was last picked up.
+	ResumedAt time.Time `json:"resumedAt,omitempty"`
 
 	// Spent before this incarnation began: what earlier processes used.
 	TokensBefore  int   `json:"tokensBefore"`
@@ -253,7 +255,10 @@ func (a *App) recoverLongRun(r *longRecord) {
 			slog.Info("long run: left interrupted after a restart", "task", r.TaskID, "why", why)
 		}
 		if r.State == longInterrupted {
-			a.runWall().Seed(r.TaskID, r.Goal, r.Model, r.State, r.Stop, r.StartedAt)
+			w := a.runWall()
+			w.SeedResumed(r.TaskID, r.Resumes, r.ResumedAt)
+			w.Interrupted(r.TaskID, r.Resumes, r.UpdatedAt)
+			w.Seed(r.TaskID, r.Goal, r.Model, r.State, r.Stop, r.StartedAt)
 		}
 		return
 	}
@@ -261,8 +266,10 @@ func (a *App) recoverLongRun(r *longRecord) {
 	// Folded into the totals before the record is touched again: what the
 	// dead incarnation used counts against the limits of this one.
 	tokens, active := r.spent()
+	cutAt := r.UpdatedAt
 	r.TokensBefore, r.SecondsBefore = tokens, int64(active/time.Second)
 	r.Resumes++
+	r.ResumedAt = time.Now()
 	r.State = longInterrupted
 	writeLongRecord(r)
 	maxMinutes, maxTokens := r.remaining()
@@ -270,6 +277,9 @@ func (a *App) recoverLongRun(r *longRecord) {
 		"task", r.TaskID, "resumes", r.Resumes, "tokens_spent", tokens,
 		"active", active.Round(time.Second).String(),
 		"max_minutes_left", maxMinutes, "max_tokens_left", maxTokens)
-	a.runWall().Seed(r.TaskID, r.Goal, r.Model, r.State, r.Stop, r.StartedAt)
+	w := a.runWall()
+	w.SeedResumed(r.TaskID, r.Resumes-1, time.Time{})
+	w.Interrupted(r.TaskID, r.Resumes-1, cutAt)
+	w.Seed(r.TaskID, r.Goal, r.Model, r.State, r.Stop, r.StartedAt)
 	a.startLongRun(r, maxMinutes, maxTokens, true)
 }

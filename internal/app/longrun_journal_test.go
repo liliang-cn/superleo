@@ -3,6 +3,8 @@ package app
 import (
 	"testing"
 	"time"
+
+	"github.com/liliang-cn/superleo/internal/backend"
 )
 
 func TestLongResumeDecision(t *testing.T) {
@@ -130,5 +132,53 @@ func TestRecoverLongRunsMarksAndLeaves(t *testing.T) {
 	}
 	if a.LongRunState("person") != nil {
 		t.Fatal("a stopped run must stay off the page")
+	}
+	// A seeded task has no turns, and the page reads their length.
+	if st.Segments == nil || st.Rounds == nil || st.Log == nil {
+		t.Fatalf("nil lists in a seeded state: %+v", st)
+	}
+	// The page is told when it was cut off, in the fields and in the log.
+	if st.InterruptedAt == "" {
+		t.Fatalf("no interruptedAt: %+v", st)
+	}
+	var cut int
+	for _, l := range st.Log {
+		if l.Kind == "interrupt" {
+			cut++
+		}
+	}
+	if cut != 1 {
+		t.Fatalf("interrupt lines = %d after two starts, want 1: %+v", cut, st.Log)
+	}
+	var sum *backend.TaskSummary
+	for _, x := range a.LongRunList() {
+		if x.TaskID == "spent" {
+			x := x
+			sum = &x
+		}
+	}
+	if sum == nil || sum.State != longInterrupted || sum.InterruptedAt == "" {
+		t.Fatalf("summary = %+v", sum)
+	}
+}
+
+// A picked-up run carries how many times, and when, into the wall.
+func TestWallResumedFields(t *testing.T) {
+	w := backend.NewRunWall(nil, nil)
+	cut := time.Now().Add(-time.Hour)
+	w.Seed("r", "g", "m", longInterrupted, "", cut)
+	w.Interrupted("r", 1, cut)
+	w.Begin("r", "g", "m", 3)
+	w.Resumed("r", 2)
+	st := w.Snapshot(nil, "r")
+	if st.Resumes != 2 || st.ResumedAt == "" || st.InterruptedAt == "" || st.State != "running" {
+		t.Fatalf("state = %+v", st)
+	}
+	kinds := ""
+	for _, l := range st.Log {
+		kinds += l.Kind + " "
+	}
+	if kinds != "interrupt resume " {
+		t.Fatalf("log kinds = %q", kinds)
 	}
 }

@@ -1602,6 +1602,11 @@ textarea.input { resize: vertical; min-height: 74px; line-height: 1.5; }
 .cr-line { white-space: pre; overflow: hidden; text-overflow: ellipsis; animation: cr-slide .3s ease-out both; }
 .cr-line .at { color: var(--cr-mute); margin-right: 8px; } .cr-line .k { display: inline-block; width: 64px; color: var(--cr-dim); }
 .cr-line.model .k { color: var(--cr-cyan); } .cr-line.segment { color: var(--cr-lime); font-weight: 700; }
+.cr-line.interrupt { color: var(--cr-amber); font-weight: 700; } .cr-line.resume { color: var(--cr-cyan); font-weight: 700; }
+.cr-task-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cr-task-chips:empty { display: none; }
+.cr-task-chips .cr-tag { margin-left: 0; }
+.cr-task-chips.detail { margin-right: 14px; }
 .cr-line.lint, .cr-line.error { color: var(--cr-rose); } .cr-line.compact, .cr-line.retry { color: var(--cr-amber); }
 
 /* ledger */

@@ -72,6 +72,12 @@ type TaskState struct {
 	State string `json:"state,omitempty"`
 	Stop  string `json:"stop,omitempty"`
 	Final string `json:"final,omitempty"`
+	// Resumes is how many times a restart cut the task off and it was picked
+	// up again; ResumedAt is when it last was, InterruptedAt when the process
+	// last went away under it (its last sign of life).
+	Resumes       int    `json:"resumes,omitempty"`
+	ResumedAt     string `json:"resumedAt,omitempty"`
+	InterruptedAt string `json:"interruptedAt,omitempty"`
 
 	MaxSegments int `json:"maxSegments"`
 
@@ -190,14 +196,48 @@ func (w *RunWall) Seed(taskID, goal, model, state, stop string, started time.Tim
 	w.notify(taskID, state)
 }
 
+// Interrupted narrates that the process went away under a task, at the
+// moment of its last sign of life, and records how many times that has been
+// followed by a pick-up. Zero at means it is not known.
+func (w *RunWall) Interrupted(taskID string, resumes int, at time.Time) {
+	w.mu.Lock()
+	t := w.get(taskID)
+	t.Resumes = resumes
+	stamp := nowStamp()
+	if !at.IsZero() {
+		stamp = at.Format(time.RFC3339Nano)
+	}
+	if t.InterruptedAt == stamp {
+		w.mu.Unlock()
+		return
+	}
+	t.InterruptedAt = stamp
+	t.Log = append(t.Log, LogLine{At: stamp, Kind: "interrupt", Text: "cut off by a restart"})
+	w.mu.Unlock()
+}
+
 // Resumed narrates that a task was picked up again after a restart, and tells
 // the page so with a kind of its own.
 func (w *RunWall) Resumed(taskID string, resumes int) {
 	w.mu.Lock()
 	t := w.get(taskID)
+	t.Resumes = resumes
+	t.ResumedAt = nowStamp()
 	w.log(t, "resume", fmt.Sprintf("picked back up after a restart (#%d), from its checkpoint", resumes))
 	w.mu.Unlock()
 	w.notify(taskID, "resumed")
+}
+
+// SeedResumed restores what an earlier incarnation of this process knew about
+// a task's restarts, from its record.
+func (w *RunWall) SeedResumed(taskID string, resumes int, resumedAt time.Time) {
+	w.mu.Lock()
+	t := w.get(taskID)
+	t.Resumes = resumes
+	if !resumedAt.IsZero() {
+		t.ResumedAt = resumedAt.Format(time.RFC3339Nano)
+	}
+	w.mu.Unlock()
 }
 
 // SetState records a state the run's own result does not say, such as a stop
@@ -489,9 +529,9 @@ func (w *RunWall) Snapshot(ctx context.Context, taskID string) *TaskState {
 		return nil
 	}
 	cp := *t
-	cp.Segments = append([]SegmentStat(nil), t.Segments...)
-	cp.Rounds = append([]RoundStat(nil), t.Rounds...)
-	cp.Log = append([]LogLine(nil), t.Log...)
+	cp.Segments = append([]SegmentStat{}, t.Segments...)
+	cp.Rounds = append([]RoundStat{}, t.Rounds...)
+	cp.Log = append([]LogLine{}, t.Log...)
 	cp.ToolCounts = map[string]int{}
 	for k, v := range t.ToolCounts {
 		cp.ToolCounts[k] = v
@@ -513,27 +553,30 @@ func (w *RunWall) Snapshot(ctx context.Context, taskID string) *TaskState {
 // TaskSummary is one card on the fleet: enough to see how every task is
 // doing at once without opening any of them.
 type TaskSummary struct {
-	TaskID      string `json:"taskId"`
-	Goal        string `json:"goal"`
-	Model       string `json:"model"`
-	StartedAt   string `json:"startedAt"`
-	EndedAt     string `json:"endedAt,omitempty"`
-	Running     bool   `json:"running"`
-	Done        bool   `json:"done"`
-	State       string `json:"state,omitempty"`
-	Stop        string `json:"stop,omitempty"`
-	Segments    int    `json:"segments"`
-	MaxSegments int    `json:"maxSegments"`
-	SegmentOpen bool   `json:"segmentOpen"`
-	Rounds      int    `json:"rounds"`
-	LastTokens  int    `json:"lastTokens"`
-	LastTools   int    `json:"lastTools"`
-	TotalTokens int    `json:"totalTokens"`
-	TotalCached int    `json:"totalCached"`
-	Rejected    int    `json:"rejected"`
-	Errors      int    `json:"errors"`
-	PlanDone    int    `json:"planDone"`
-	PlanTotal   int    `json:"planTotal"`
+	TaskID        string `json:"taskId"`
+	Goal          string `json:"goal"`
+	Model         string `json:"model"`
+	StartedAt     string `json:"startedAt"`
+	EndedAt       string `json:"endedAt,omitempty"`
+	Running       bool   `json:"running"`
+	Done          bool   `json:"done"`
+	State         string `json:"state,omitempty"`
+	Stop          string `json:"stop,omitempty"`
+	Resumes       int    `json:"resumes,omitempty"`
+	ResumedAt     string `json:"resumedAt,omitempty"`
+	InterruptedAt string `json:"interruptedAt,omitempty"`
+	Segments      int    `json:"segments"`
+	MaxSegments   int    `json:"maxSegments"`
+	SegmentOpen   bool   `json:"segmentOpen"`
+	Rounds        int    `json:"rounds"`
+	LastTokens    int    `json:"lastTokens"`
+	LastTools     int    `json:"lastTools"`
+	TotalTokens   int    `json:"totalTokens"`
+	TotalCached   int    `json:"totalCached"`
+	Rejected      int    `json:"rejected"`
+	Errors        int    `json:"errors"`
+	PlanDone      int    `json:"planDone"`
+	PlanTotal     int    `json:"planTotal"`
 	// Spark is tokens per turn for the last few turns, for a card sparkline.
 	Spark []int `json:"spark"`
 }
@@ -552,6 +595,7 @@ func (w *RunWall) List() []TaskSummary {
 			TaskID: t.TaskID, Goal: t.Goal, Model: t.Model,
 			StartedAt: t.StartedAt, EndedAt: t.EndedAt,
 			Running: t.Running, Done: t.Done, State: t.State, Stop: t.Stop,
+			Resumes: t.Resumes, ResumedAt: t.ResumedAt, InterruptedAt: t.InterruptedAt,
 			Segments: len(t.Segments), MaxSegments: t.MaxSegments,
 			Rounds:      len(t.Rounds),
 			TotalTokens: t.TotalTokens, TotalCached: t.TotalCached,
