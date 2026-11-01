@@ -30,6 +30,7 @@ func (a *App) runWall() *backend.RunWall {
 				return svc.Plan(ctx, taskID)
 			},
 			func(taskID, kind string) {
+				a.longJournalTouch(taskID, a.runWall().Tokens(taskID), kind == "finish")
 				a.emit("longrun:tick", map[string]any{"taskId": taskID, "kind": kind})
 			},
 		)
@@ -59,16 +60,51 @@ func (a *App) LongRunStart(goal string, maxSegments, roundsPerSegment, maxMinute
 	if taskID == "" {
 		taskID = uuid.NewString()
 	}
-	wall := a.runWall()
 	model := ""
 	if settings != nil {
 		model = settings.LLMModel
 	}
-	wall.Begin(taskID, goal, model, maxSegments)
-
+	// A budget the caller did not give falls back to the settings', and
+	// none there means none at all.
+	if maxTokens <= 0 && settings != nil {
+		maxTokens = settings.LongTaskMaxTokens
+	}
+	rec := &longRecord{
+		TaskID: taskID, Goal: goal, Model: model,
+		MaxSegments: maxSegments, RoundsPerSegment: roundsPerSegment,
+		MaxMinutes: maxMinutes, MaxTokens: maxTokens, Unattended: unattended,
+	}
+	if old := readLongRecord(taskID); old != nil {
+		rec.StartedAt = old.StartedAt
+	}
 	if svc == nil {
+		wall := a.runWall()
+		wall.Begin(taskID, goal, model, maxSegments)
 		wall.Finish(taskID, false, "unavailable", "", errBackendNotReady(buildErr))
 		return taskID
+	}
+	a.startLongRun(rec, maxMinutes, maxTokens, false)
+	return taskID
+}
+
+// startLongRun runs a task in the background under its record. maxMinutes and
+// maxTokens are the limits this run is given, which on a resume are what is
+// left of the record's. resumed says it is a task picked up after a restart.
+func (a *App) startLongRun(rec *longRecord, maxMinutes, maxTokens int, resumed bool) {
+	a.mu.Lock()
+	svc := a.svc
+	buildErr := a.buildErr
+	a.mu.Unlock()
+	taskID := rec.TaskID
+	wall := a.runWall()
+	wall.Begin(taskID, rec.Goal, rec.Model, rec.MaxSegments)
+	if svc == nil {
+		wall.Finish(taskID, false, "unavailable", "", errBackendNotReady(buildErr))
+		return
+	}
+	a.longJournalBegin(rec)
+	if resumed {
+		wall.Resumed(taskID, rec.Resumes)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -84,41 +120,70 @@ func (a *App) LongRunStart(goal string, maxSegments, roundsPerSegment, maxMinute
 			cancel()
 			a.longMu.Lock()
 			delete(a.longRuns, taskID)
+			delete(a.longStopped, taskID)
 			a.longMu.Unlock()
 		}()
 		opts := backend.LongRunOptions{
-			MaxSegments:      maxSegments,
-			RoundsPerSegment: roundsPerSegment,
+			MaxSegments:      rec.MaxSegments,
+			RoundsPerSegment: rec.RoundsPerSegment,
+			MaxTotalTokens:   maxTokens,
 			TaskID:           taskID,
-			Unattended:       unattended,
+			Unattended:       rec.Unattended,
 		}
 		if maxMinutes > 0 {
 			opts.MaxDuration = time.Duration(maxMinutes) * time.Minute
 		}
-		// A budget the caller did not give falls back to the settings', and
-		// none there means none at all.
-		opts.MaxTotalTokens = maxTokens
-		if maxTokens <= 0 && settings != nil {
-			opts.MaxTotalTokens = settings.LongTaskMaxTokens
-		}
-		report, err := svc.StreamLong(ctx, goal, opts, nil)
+		report, err := svc.StreamLong(ctx, rec.Goal, opts, nil)
+		tokens := wall.Tokens(taskID)
+
+		a.longMu.Lock()
+		byPerson := a.longStopped[taskID]
+		a.longMu.Unlock()
+		// The process going away ends the run too, and that is not the task
+		// ending: it stays running in the journal, which is what the next
+		// start looks for.
+		leaving := !byPerson && a.quitting.Load()
+
 		if err != nil {
 			stop := "error"
 			if ctx.Err() != nil {
 				stop = "cancelled"
 			}
 			wall.Finish(taskID, false, stop, "", err)
+			switch {
+			case byPerson:
+				wall.SetState(taskID, longStopped)
+				a.longJournalEnd(taskID, longStopped, stop, tokens)
+			case !leaving:
+				a.longJournalEnd(taskID, longFailed, err.Error(), tokens)
+			}
 			return
 		}
 		wall.Finish(taskID, report.Done, report.Stop, report.Text, nil)
+		switch {
+		case byPerson:
+			wall.SetState(taskID, longStopped)
+			a.longJournalEnd(taskID, longStopped, report.Stop, tokens)
+		case report.Done:
+			a.longJournalEnd(taskID, longDone, report.Stop, tokens)
+		case !leaving:
+			a.longJournalEnd(taskID, longFailed, report.Stop, tokens)
+		}
 	}()
-	return taskID
 }
 
 // LongRunStop cancels a task in flight. A task not in flight is not an error.
 func (a *App) LongRunStop(taskID string) bool {
 	a.longMu.Lock()
 	cancel, ok := a.longRuns[taskID]
+	if ok {
+		// Said before the cancel: a run ending in a cancel is told apart
+		// from the process ending by this, and only this one is final.
+		if a.longStopped == nil {
+			a.longStopped = map[string]bool{}
+		}
+		a.longStopped[taskID] = true
+	}
 	a.longMu.Unlock()
 	if !ok {
 		return false

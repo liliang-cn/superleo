@@ -182,6 +182,17 @@ type App struct {
 	// button has something to press.
 	longMu   sync.Mutex
 	longRuns map[string]context.CancelFunc
+	// longStopped marks the runs a person stopped, as opposed to the ones the
+	// process going away cut short.
+	longStopped map[string]bool
+	// longRecs is the journal of the runs this process has started; the file
+	// is the durable copy (longrun_journal.go).
+	longJMu     sync.Mutex
+	longRecs    map[string]*longRecord
+	longTouched map[string]time.Time
+	// quitting is set when Shutdown begins: runs ending after that are being
+	// cut short, not finishing.
+	quitting atomic.Bool
 
 	// scheduler drives prompts that run on a clock. It is rebuilt with the
 	// service, since a run is an agent turn against the current settings.
@@ -365,6 +376,8 @@ func (a *App) boot() {
 	a.recoverCLIRuns()
 	// The orders the queen had out when she last stopped, and what became of them.
 	a.openTaskBoard()
+	// And the long runs, from their checkpoints.
+	a.recoverLongRuns()
 	// Hermes's environment, built now rather than in someone's first turn.
 	a.warmHermes("start")
 
@@ -421,6 +434,9 @@ func (a *App) syncProxy() {
 
 // shutdown releases backend resources.
 func (a *App) Shutdown(ctx context.Context) {
+	// First: the long runs the turns' stopping ends must not be recorded as
+	// finished or failed.
+	a.quitting.Store(true)
 	// Before the turns: a turn ending stops the coding run it waits on, and
 	// those runs are to carry on and be picked up when SuperLeo is back.
 	a.detachCLIRuns()

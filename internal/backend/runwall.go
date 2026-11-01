@@ -66,8 +66,12 @@ type TaskState struct {
 	EndedAt   string `json:"endedAt,omitempty"`
 	Done      bool   `json:"done"`
 	Running   bool   `json:"running"`
-	Stop      string `json:"stop,omitempty"`
-	Final     string `json:"final,omitempty"`
+	// State is running, done, failed, stopped or interrupted. Interrupted is
+	// a task cut off by SuperLeo going away that is not (or not yet) being
+	// carried on.
+	State string `json:"state,omitempty"`
+	Stop  string `json:"stop,omitempty"`
+	Final string `json:"final,omitempty"`
 
 	MaxSegments int `json:"maxSegments"`
 
@@ -137,6 +141,8 @@ func (w *RunWall) Begin(taskID, goal, model string, maxSegments int) {
 	t.Model = model
 	t.MaxSegments = maxSegments
 	t.Running = true
+	t.State = "running"
+	t.Done, t.EndedAt, t.Stop = false, "", ""
 	if t.StartedAt == "" {
 		t.StartedAt = nowStamp()
 	}
@@ -150,6 +156,14 @@ func (w *RunWall) Finish(taskID string, done bool, stop, final string, err error
 	t := w.get(taskID)
 	t.Running = false
 	t.Done = done
+	switch {
+	case done:
+		t.State = "done"
+	case stop == "cancelled":
+		t.State = "stopped"
+	default:
+		t.State = "failed"
+	}
 	t.Stop = stop
 	t.Final = final
 	t.EndedAt = nowStamp()
@@ -159,6 +173,51 @@ func (w *RunWall) Finish(taskID string, done bool, stop, final string, err error
 	}
 	w.mu.Unlock()
 	w.notify(taskID, "finish")
+}
+
+// Seed puts a task on the wall that a previous process was running, so the
+// page shows it while it is carried on, or shows why it is not. Its segments
+// and rounds are gone with that process; the plan is read from the store.
+func (w *RunWall) Seed(taskID, goal, model, state, stop string, started time.Time) {
+	w.mu.Lock()
+	t := w.get(taskID)
+	t.Goal, t.Model, t.State, t.Stop = goal, model, state, stop
+	t.Running, t.Done = false, false
+	if !started.IsZero() {
+		t.StartedAt = started.Format(time.RFC3339Nano)
+	}
+	w.mu.Unlock()
+	w.notify(taskID, state)
+}
+
+// Resumed narrates that a task was picked up again after a restart, and tells
+// the page so with a kind of its own.
+func (w *RunWall) Resumed(taskID string, resumes int) {
+	w.mu.Lock()
+	t := w.get(taskID)
+	w.log(t, "resume", fmt.Sprintf("picked back up after a restart (#%d), from its checkpoint", resumes))
+	w.mu.Unlock()
+	w.notify(taskID, "resumed")
+}
+
+// SetState records a state the run's own result does not say, such as a stop
+// a person asked for.
+func (w *RunWall) SetState(taskID, state string) {
+	w.mu.Lock()
+	if t, ok := w.tasks[taskID]; ok {
+		t.State = state
+	}
+	w.mu.Unlock()
+}
+
+// Tokens is what the task has used since the wall began watching it.
+func (w *RunWall) Tokens(taskID string) int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if t, ok := w.tasks[taskID]; ok {
+		return t.TotalTokens
+	}
+	return 0
 }
 
 // get returns the state for a task, creating it. Caller holds w.mu.
@@ -461,6 +520,7 @@ type TaskSummary struct {
 	EndedAt     string `json:"endedAt,omitempty"`
 	Running     bool   `json:"running"`
 	Done        bool   `json:"done"`
+	State       string `json:"state,omitempty"`
 	Stop        string `json:"stop,omitempty"`
 	Segments    int    `json:"segments"`
 	MaxSegments int    `json:"maxSegments"`
@@ -491,7 +551,7 @@ func (w *RunWall) List() []TaskSummary {
 		s := TaskSummary{
 			TaskID: t.TaskID, Goal: t.Goal, Model: t.Model,
 			StartedAt: t.StartedAt, EndedAt: t.EndedAt,
-			Running: t.Running, Done: t.Done, Stop: t.Stop,
+			Running: t.Running, Done: t.Done, State: t.State, Stop: t.Stop,
 			Segments: len(t.Segments), MaxSegments: t.MaxSegments,
 			Rounds:      len(t.Rounds),
 			TotalTokens: t.TotalTokens, TotalCached: t.TotalCached,
