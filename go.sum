@@ -230,12 +230,8 @@ github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80 h1:6Yzfa6GP0rIo/kUL
 github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80/go.mod h1:imJHygn/1yfhB7XSJJKlFZKl/J+dCPAknuiaGOshXAs=
 github.com/leodido/go-urn v1.4.0 h1:WT9HwE9SGECu3lg4d/dIA+jxlljEa1/ffXKmRjqdmIQ=
 github.com/leodido/go-urn v1.4.0/go.mod h1:bvxc+MVxLKB4z00jd1z+Dvzr47oO32F/QSNjSBOlFxI=
-github.com/liliang-cn/agent-go/v3 v3.77.3 h1:6fQwjAF+iov8Jwte0kZPy8Shc/yCbM9FHnbLlFXm6nQ=
-github.com/liliang-cn/agent-go/v3 v3.77.3/go.mod h1:vTGOAZd4eocSbEu0C4AWzTmJFGHOBWm6hiyWB3IIe9k=
-github.com/liliang-cn/agent-go/v3 v3.77.4 h1:4ix5LqkL9ABtf3gplZxwAmf57X+iN8vZBQpfbutGBac=
-github.com/liliang-cn/agent-go/v3 v3.77.4/go.mod h1:vTGOAZd4eocSbEu0C4AWzTmJFGHOBWm6hiyWB3IIe9k=
-github.com/liliang-cn/agent-go/v3 v3.78.0 h1:8kzKt19ZpeDDObOyYybaBt9bCAU8F9kSf3EC7oWzUHk=
-github.com/liliang-cn/agent-go/v3 v3.78.0/go.mod h1:vTGOAZd4eocSbEu0C4AWzTmJFGHOBWm6hiyWB3IIe9k=
+github.com/liliang-cn/agent-go/v3 v3.78.1 h1:zNx0tzkoUMpA9yvFeH49Oidab7FjFNW7vhhIl+4Tk74=
+github.com/liliang-cn/agent-go/v3 v3.78.1/go.mod h1:vTGOAZd4eocSbEu0C4AWzTmJFGHOBWm6hiyWB3IIe9k=
 github.com/liliang-cn/agentexec v0.6.0 h1:AdCAUb+8EeYNR5333V04/MN1G7RQLAQkbZdpTHNCwBE=
 github.com/liliang-cn/agentexec v0.6.0/go.mod h1:Lt1DVrf3IX0u/2B4YokbMOfQElXKN4bd1xgKNI4acIo=
 github.com/liliang-cn/cortexdb/v2 v2.123.0 h1:GDNBaQOOWHn/XR5ICLeemoAfhxflrGsNUe/Z1XKO57I=
