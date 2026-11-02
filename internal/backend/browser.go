@@ -352,12 +352,32 @@ func (b *browserRuntime) run(ctx context.Context, args ...string) (string, error
 	raw, err := cmd.CombinedOutput()
 	out := strings.TrimSpace(string(raw))
 	if err == nil && strings.Contains(out, `"success":false`) {
-		err = fmt.Errorf("agent-browser: %s", out)
+		err = fmt.Errorf("agent-browser: %s", agentBrowserReason(out))
+	} else if err != nil && out != "" {
+		// agent-browser exits 1 and prints why; "exit status 1" alone left
+		// the model and the log with nothing to tell the person.
+		err = fmt.Errorf("agent-browser: %s", agentBrowserReason(out))
 	}
 	if err != nil && out == "" {
 		out = err.Error()
 	}
 	return out, err
+}
+
+// agentBrowserReason is the "error" agent-browser put in its JSON answer, or
+// what it printed when that is not JSON, cut to a readable length.
+func agentBrowserReason(out string) string {
+	var r struct {
+		Error string `json:"error"`
+	}
+	reason := out
+	if json.Unmarshal([]byte(out), &r) == nil && r.Error != "" {
+		reason = r.Error
+	}
+	if len(reason) > 600 {
+		reason = strings.ToValidUTF8(reason[:600], "") + "…"
+	}
+	return reason
 }
 
 // streamAddr asks agent-browser where this session's stream is. The answer

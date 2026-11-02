@@ -164,3 +164,24 @@ func TestThePersonsChromeCannotBeClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestAFailedBrowserCallSaysWhy(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script stand-in")
+	}
+	t.Setenv("SUPERLEO_HOME", t.TempDir())
+	bin := filepath.Join(t.TempDir(), "agent-browser")
+	script := "#!/bin/sh\necho '{\"error\":\"All CDP discovery methods failed for 127.0.0.1:9222: Connection refused (os error 61)\",\"success\":false}'\nexit 1\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	b := &browserRuntime{bin: bin, env: map[string]string{"AGENT_BROWSER_SESSION": "t"}, mode: BrowserModeChrome}
+	err := b.ensureOwnTab(context.Background())
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	got := err.Error()
+	if !strings.Contains(got, "Connection refused") || strings.Contains(got, "exit status") || strings.Contains(got, `"success"`) {
+		t.Fatalf("error does not carry agent-browser's reason: %q", got)
+	}
+}
