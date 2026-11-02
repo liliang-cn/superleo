@@ -1599,6 +1599,17 @@ func (a *App) ChatHistory(sessionID string) []backend.ChatTurn {
 	return withChatActions(sessionID, withTurnTimes(sessionID, svc.SessionTurns(sessionID)))
 }
 
+// ChatHistoryPage is ChatHistory in pages, for a phone: the conversation's
+// turns that are part of it (what the agent was handed to read is left out,
+// it is the bulk of a long conversation and no client shows it), the newest
+// `limit` of them when before is negative, else the `limit` ending just
+// before turn index `before`. Start is the index of the first turn returned
+// and is the next call's before; Total counts every turn; More says there are
+// earlier ones. A page begins at one of the person's own messages.
+func (a *App) ChatHistoryPage(sessionID string, before, limit int) ChatPage {
+	return pageTurns(a.ChatHistory(sessionID), before, limit)
+}
+
 // SearchMCPServers finds installable MCP servers in the official registry, so
 // the panel can offer the same catalogue the agent searches.
 func (a *App) SearchMCPServers(query string) map[string]any {
