@@ -1085,7 +1085,8 @@ func (a *App) SendCallChat(sessionID, message string, imagePaths []string) strin
 // queen engine.
 func (a *App) sendChat(sessionID, message string, imagePaths []string, own bool) string {
 	requestID := uuid.NewString()
-	a.announceTurn(requestID, sessionID, message, len(imagePaths))
+	sent := withSentImages(message, imagePaths, a.workspaceDir())
+	a.announceTurn(requestID, sessionID, sent, len(imagePaths))
 
 	// A message addressed to another agent goes there instead, and this app's
 	// model never runs. Checked before the readiness gate below on purpose: an
@@ -1106,7 +1107,7 @@ func (a *App) sendChat(sessionID, message string, imagePaths []string, own bool)
 
 	// Asked again while this conversation is still answering: it starts now
 	// all the same (see turn_at_once.go).
-	a.startTurn(requestID, sessionID, message, imagePaths, own)
+	a.startTurn(requestID, sessionID, sent, imagePaths, own)
 	return requestID
 }
 

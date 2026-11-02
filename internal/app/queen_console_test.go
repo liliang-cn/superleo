@@ -33,7 +33,7 @@ func TestATurnIsAnnouncedAndItsEventsCarryTheConversation(t *testing.T) {
 	if turn == nil {
 		t.Fatal("no chat:turn")
 	}
-	if turn["sessionId"] != QueenConsoleSession || turn["message"] != "明天的会改到几点了？" || turn["images"] != 1 {
+	if turn["sessionId"] != QueenConsoleSession || turn["message"] != sentImagesHeading+"\n- /tmp/a.png\n\n明天的会改到几点了？" || turn["images"] != 1 {
 		t.Fatalf("chat:turn: %v", turn)
 	}
 	if done := h.ev.find("chat:done", id); done["sessionId"] != QueenConsoleSession {
