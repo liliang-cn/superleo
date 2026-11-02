@@ -13,6 +13,7 @@ import { toast } from "../lib/toasts";
 import { PATHS, attentionPath, taskPath } from "../lib/routes";
 import { focusInWorld } from "./bus";
 import Talk from "./Talk";
+import CLISessions from "./CLISessions";
 import WorkerKitCard from "./WorkerKit";
 import MachineHost from "./MachineHost";
 import type { Picked } from "./engine";
@@ -185,7 +186,9 @@ export default function Inspector({ picked, data, onClose, open, openDash, full,
       body = (
         <>
           <TermSessions clis={mineTerm ? { [name]: mineTerm } : {}} />
-          <Talk who={picked.kind === "cli" ? { kind: "cli", agent: picked.id } : { kind: "agent", name }} placeholder={picked.kind === "cli" ? t("What should {name} do?", { name }) : t("Talk to {name}…", { name })} />
+          {picked.kind === "cli"
+            ? <CLISessions agent={picked.id} placeholder={t("What should {name} do?", { name })} />
+            : <Talk who={{ kind: "agent", name }} placeholder={t("Talk to {name}…", { name })} />}
           {live.length > 0 && (
             <ul className="wi-list">
               {live.map((r) => (

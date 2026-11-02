@@ -158,7 +158,7 @@ export default function ConversationsView() {
   );
 }
 
-function Thread({ id, onBack, onOpen, onChanged }: { id: string; onBack: () => void; onOpen: (id: string) => void; onChanged: () => void }) {
+export function Thread({ id, onBack, onOpen, onChanged }: { id: string; onBack: () => void; onOpen: (id: string) => void; onChanged: () => void }) {
   const { t } = useI18n();
   const who = useWho();
   const ime = useImeGuard();
