@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -36,4 +37,19 @@ func InstallChromeExtension() error {
 		}
 		return os.WriteFile(out, data, 0o644)
 	})
+}
+
+// WriteChromeExtensionPair leaves the bridge's port and token in the unpacked
+// extension as pair.json, which the extension reads on its own, so the person
+// never copies a code between SuperLeo and Chrome. Only this user can read it.
+func WriteChromeExtensionPair(port int, token string) error {
+	data, err := json.Marshal(map[string]any{"port": port, "token": token})
+	if err != nil {
+		return err
+	}
+	out := filepath.Join(ChromeExtensionDir(), "pair.json")
+	if cur, err := os.ReadFile(out); err == nil && bytes.Equal(cur, data) {
+		return nil
+	}
+	return os.WriteFile(out, data, 0o600)
 }

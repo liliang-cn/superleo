@@ -455,6 +455,9 @@ func (s *Service) startBrowser(mode string) {
 			b.setErr(err)
 		} else {
 			b.bridge = br
+			if err := WriteChromeExtensionPair(br.Port(), br.Token()); err != nil {
+				log.Printf("superleo: browser: pair the Chrome extension: %v", err)
+			}
 			delete(b.env, "AGENT_BROWSER_AUTO_CONNECT")
 			b.env["AGENT_BROWSER_CDP"] = br.CDPURL()
 			// Its own session: a daemon left over from auto-connect would

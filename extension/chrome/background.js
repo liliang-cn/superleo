@@ -41,8 +41,18 @@ let groupLock = Promise.resolve();
 
 // ---- connection ------------------------------------------------------------
 
+// The code the person pasted, if it parses; otherwise the pair.json SuperLeo
+// writes into this extension's folder, so pairing needs nothing from them.
 async function loadCode() {
   const { code } = await chrome.storage.local.get("code");
+  if (parseCode(code)) return code;
+  try {
+    const r = await fetch(chrome.runtime.getURL("pair.json"), { cache: "no-store" });
+    if (r.ok) {
+      const p = await r.json();
+      if (p && p.port && p.token) return `${p.port}:${p.token}`;
+    }
+  } catch (_) {}
   return code || "";
 }
 
@@ -54,9 +64,10 @@ function parseCode(code) {
 async function connect() {
   clearTimeout(retryTimer);
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-  const c = parseCode(await loadCode());
+  const raw = await loadCode();
+  const c = parseCode(raw);
   if (!c) {
-    lastError = "";
+    lastError = raw ? "连接码不对" : "";
     return;
   }
   let sock;
