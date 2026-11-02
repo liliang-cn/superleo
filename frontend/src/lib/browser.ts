@@ -20,6 +20,8 @@ export interface BrowserStatus {
   /** Attached to its browser. False in the person's Chrome until a connect. */
   connected?: boolean;
   error?: string;
+  /** My Chrome: the extension that drives it, and what to paste into it. */
+  bridge?: { connected: boolean; browser?: string; version?: string; code: string; dir: string; cdpUrl: string };
   /** Which run has the browser and which wait in line for it. */
   queue?: { holder?: string; holderSince?: string; waiting?: string[] };
 }

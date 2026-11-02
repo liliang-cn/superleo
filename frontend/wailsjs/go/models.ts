@@ -2853,6 +2853,28 @@ export namespace backend {
 		    return a;
 		}
 	}
+	export class BridgeStatus {
+	    connected: boolean;
+	    browser?: string;
+	    version?: string;
+	    code: string;
+	    dir: string;
+	    cdpUrl: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BridgeStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.connected = source["connected"];
+	        this.browser = source["browser"];
+	        this.version = source["version"];
+	        this.code = source["code"];
+	        this.dir = source["dir"];
+	        this.cdpUrl = source["cdpUrl"];
+	    }
+	}
 	export class BrowserQueueStatus {
 	    holder?: string;
 	    // Go type: time
@@ -2897,6 +2919,7 @@ export namespace backend {
 	    connected: boolean;
 	    error?: string;
 	    queue?: BrowserQueueStatus;
+	    bridge?: BridgeStatus;
 	
 	    static createFrom(source: any = {}) {
 	        return new BrowserStatus(source);
@@ -2912,6 +2935,7 @@ export namespace backend {
 	        this.connected = source["connected"];
 	        this.error = source["error"];
 	        this.queue = this.convertValues(source["queue"], BrowserQueueStatus);
+	        this.bridge = this.convertValues(source["bridge"], BridgeStatus);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
