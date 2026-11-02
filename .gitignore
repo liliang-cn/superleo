@@ -22,3 +22,4 @@ build/linux/
 !build/appicon.png
 !frontend/public/appicon.png
 !internal/backend/avatars/*.png
+!extension/chrome/icon.png
