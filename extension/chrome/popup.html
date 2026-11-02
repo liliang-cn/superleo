@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --bg:#ffffff; --ink:#0b1220; --mute:#64708a; --line:#e3e8f0; --signal:#1f5bff; --ok:#12805c; --bad:#c2410c; }
+  body { margin:0; width:280px; padding:16px; background:var(--bg); color:var(--ink); font:13px/1.4 -apple-system,"PingFang SC",system-ui,sans-serif; }
+  h1 { font-size:15px; margin:0 0 12px; font-weight:600; }
+  .st { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--mute); }
+  .st.on .dot { background:var(--ok); } .st.err .dot { background:var(--bad); }
+  label { display:block; color:var(--mute); margin-bottom:4px; }
+  input { box-sizing:border-box; width:100%; padding:7px 8px; border:1px solid var(--line); border-radius:6px; font:12px ui-monospace,Menlo,monospace; color:var(--ink); background:#fff; }
+  input:focus { outline:none; border-color:var(--signal); }
+  .row { display:flex; gap:8px; margin-top:10px; }
+  button { flex:1; padding:7px 0; border-radius:6px; border:1px solid var(--line); background:#fff; color:var(--ink); font:inherit; cursor:pointer; }
+  button.p { background:var(--signal); border-color:var(--signal); color:#fff; }
+</style>
+</head>
+<body>
+  <h1>SuperLeo</h1>
+  <div id="st" class="st"><span class="dot"></span><span id="stt">未连接</span></div>
+  <label for="code">连接码</label>
+  <input id="code" spellcheck="false" autocomplete="off" placeholder="43521:…">
+  <div class="row"><button id="go" class="p">连接</button><button id="off">断开</button></div>
+  <div class="row"><button id="panel">打开蜂后</button></div>
+  <script src="popup.js"></script>
+</body>
+</html>

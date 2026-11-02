@@ -97,6 +97,9 @@ type BrowserStatus struct {
 	Error     string `json:"error,omitempty"`
 	// Queue is which run has the browser and which wait for it.
 	Queue *BrowserQueueStatus `json:"queue,omitempty"`
+	// Bridge is the Chrome extension's side of "my Chrome": whether it is
+	// connected and what to paste into it.
+	Bridge *BridgeStatus `json:"bridge,omitempty"`
 }
 
 // browserRuntime is one service's browser and how far getting it running has
@@ -122,6 +125,10 @@ type browserRuntime struct {
 	// for a permission prompt.
 	attachMu   sync.Mutex
 	lastAttach time.Time
+
+	// bridge is set in "my Chrome": the browser is the person's Chrome reached
+	// through SuperLeo's extension, not agent-browser's own auto-connect.
+	bridge *BrowserBridge
 
 	tabMu        sync.Mutex // one ensureOwnTab at a time
 	attachFailed time.Time  // when reaching Chrome last failed, under tabMu
@@ -149,6 +156,10 @@ func (s *Service) BrowserStatus() BrowserStatus {
 	b := s.browser
 	st.Enabled, st.Mode = true, b.mode
 	st.Ready = b.ready.Load()
+	if b.bridge != nil {
+		br := b.bridge.Status()
+		st.Bridge = &br
+	}
 	if b.queue != nil {
 		if q := b.queue.status(); q.Holder != "" || len(q.Waiting) > 0 {
 			st.Queue = &q
@@ -208,6 +219,14 @@ func (s *Service) BrowserConnect(ctx context.Context) error {
 		_, err := b.run(ctx, "get", "url")
 		return err
 	}
+	if b.bridge != nil {
+		if err := b.bridgeReady(); err != nil {
+			return err
+		}
+		// A read: agent-browser attaches through the relay and opens the
+		// session's tab in the SuperLeo group if it has none.
+		return b.ensureBridgeTab(ctx)
+	}
 	b.attachMu.Lock()
 	if wait := browserAttachGap - time.Since(b.lastAttach); wait > 0 {
 		b.attachMu.Unlock()
@@ -256,6 +275,34 @@ func (b *browserRuntime) ensureOwnTab(ctx context.Context) error {
 	}
 	if err := os.WriteFile(b.ownTabPath(), []byte(cur), 0o600); err != nil {
 		return err
+	}
+	return nil
+}
+
+// bridgeReady is the gate's check in "my Chrome": the extension must be there.
+func (b *browserRuntime) bridgeReady() error {
+	if b.bridge.Connected() {
+		return nil
+	}
+	return fmt.Errorf("the SuperLeo Chrome extension is not connected: ask the person to load it in Chrome (Settings, Browser, My Chrome) and paste the code")
+}
+
+// ensureBridgeTab makes sure the session has a tab to work in. Through the
+// bridge every tab it can see is one of its own, in the SuperLeo group.
+func (b *browserRuntime) ensureBridgeTab(ctx context.Context) error {
+	b.tabMu.Lock()
+	defer b.tabMu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	cur, err := b.boundTab(ctx)
+	if err != nil {
+		return fmt.Errorf("reach Chrome through the extension: %v", err)
+	}
+	if cur != "" {
+		return nil
+	}
+	if out, err := b.run(ctx, "tab", "new"); err != nil {
+		return fmt.Errorf("open a tab in the SuperLeo group: %s", out)
 	}
 	return nil
 }
@@ -377,6 +424,24 @@ func (b *browserRuntime) forgetStream() {
 func (s *Service) startBrowser(mode string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &browserRuntime{mode: mode, env: browserEnv(mode), cancel: cancel}
+	if mode == BrowserModeChrome && os.Getenv("SUPERLEO_BROWSER_CHROME_LEGACY") == "" {
+		// The extension's bridge replaces auto-connect (browser_bridge.go).
+		if err := InstallChromeExtension(); err != nil {
+			log.Printf("superleo: browser: unpack the Chrome extension: %v", err)
+		}
+		br := SharedBridge()
+		if err := br.Start(); err != nil {
+			log.Printf("superleo: browser: bridge: %v", err)
+			b.setErr(err)
+		} else {
+			b.bridge = br
+			delete(b.env, "AGENT_BROWSER_AUTO_CONNECT")
+			b.env["AGENT_BROWSER_CDP"] = br.CDPURL()
+			// Its own session: a daemon left over from auto-connect would
+			// keep that connection whatever it is told now.
+			b.env["AGENT_BROWSER_SESSION"] += fmt.Sprintf("-b%d", br.Port())
+		}
+	}
 	b.queue = browserQueueFor(browserKey(mode, b.env))
 	s.browser = b
 	if mode == BrowserModeChrome {
@@ -390,6 +455,9 @@ func (s *Service) startBrowser(mode string) {
 		s.gate.Guard(BrowserTool(""), func(ctx context.Context) error {
 			if err := b.takeBrowser(ctx); err != nil {
 				return err
+			}
+			if b.bridge != nil {
+				return b.bridgeReady()
 			}
 			if b.mode == BrowserModeChrome {
 				return b.ensureOwnTab(ctx)
@@ -448,11 +516,20 @@ func (s *Service) guardPersonsChrome(b *browserRuntime) {
 	const why = "this is the person's own Chrome: closing it or its tabs is theirs to do"
 	if s.gate != nil {
 		s.gate.Forbid(BrowserTool("close"), why)
-		s.gate.Forbid(BrowserTool("tab_close"), why)
+		// Through the bridge the session can only see the tabs in the
+		// SuperLeo group, and the extension refuses to close any other, so
+		// closing its own is safe. The old auto-connect saw every tab.
+		if b.bridge == nil {
+			s.gate.Forbid(BrowserTool("tab_close"), why)
+		}
 	}
 	b.env["AGENT_BROWSER_PIN_TAB"] = "1"
 	policy := filepath.Join(DataDir(), "browser-policy.json")
-	if err := os.WriteFile(policy, []byte(`{"default":"allow","deny":["tab_close"]}`), 0o600); err != nil {
+	rules := `{"default":"allow","deny":["tab_close"]}`
+	if b.bridge != nil {
+		rules = `{"default":"allow"}`
+	}
+	if err := os.WriteFile(policy, []byte(rules), 0o600); err != nil {
 		log.Printf("superleo: browser: action policy: %v", err)
 		return
 	}

@@ -319,7 +319,19 @@ type App struct {
 
 // NewApp creates a new App.
 func NewApp() *App {
-	return &App{avatar: backend.NoopDriver{}}
+	a := &App{avatar: backend.NoopDriver{}}
+	// The Chrome extension's side panel talks to the queen here
+	// (backend/browser_bridge_chat.go).
+	backend.SetBridgeChat(&backend.BridgeChat{
+		Send:    func(session, message string) string { return a.SendChat(session, message, nil) },
+		History: func(session string) any { return a.ChatHistory(session) },
+		Running: func(id string) bool {
+			a.runMu.Lock()
+			defer a.runMu.Unlock()
+			return a.runs[id] != nil
+		},
+	})
+	return a
 }
 
 // startup loads settings, starts the avatar SSE server, and builds the backend

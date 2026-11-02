@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#ffffff; --soft:#f4f6fa; --ink:#0b1220; --mute:#64708a; --line:#e3e8f0; --signal:#1f5bff; --bad:#c2410c; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { display:flex; flex-direction:column; background:var(--bg); color:var(--ink); font:13px/1.55 -apple-system,"PingFang SC",system-ui,sans-serif; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid var(--line); }
+  header b { font-size:14px; font-weight:600; }
+  #st { color:var(--mute); font-size:12px; }
+  #log { flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+  .m { max-width:92%; padding:8px 11px; border-radius:10px; word-break:break-word; }
+  .m.user { align-self:flex-end; background:var(--signal); color:#fff; white-space:pre-wrap; }
+  .m.assistant { align-self:flex-start; background:var(--soft); }
+  .m p { margin:0 0 6px; } .m p:last-child { margin:0; }
+  .m code { font:12px ui-monospace,Menlo,monospace; background:#e8ecf4; padding:1px 4px; border-radius:4px; }
+  .m pre { margin:6px 0; padding:8px; background:#e8ecf4; border-radius:6px; overflow-x:auto; }
+  .m pre code { background:none; padding:0; }
+  .m ul { margin:4px 0; padding-left:18px; }
+  .m a { color:var(--signal); }
+  .think { color:var(--mute); align-self:flex-start; }
+  footer { border-top:1px solid var(--line); padding:10px 14px; }
+  label { display:flex; align-items:center; gap:6px; color:var(--mute); margin-bottom:8px; cursor:pointer; }
+  .row { display:flex; gap:8px; align-items:flex-end; }
+  textarea { flex:1; resize:none; height:56px; padding:7px 9px; border:1px solid var(--line); border-radius:8px; font:inherit; color:var(--ink); background:#fff; }
+  textarea:focus { outline:none; border-color:var(--signal); }
+  button { padding:8px 14px; border-radius:8px; border:1px solid var(--signal); background:var(--signal); color:#fff; font:inherit; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .err { color:var(--bad); }
+</style>
+</head>
+<body>
+  <header><b>蜂后</b><span id="st">未连接</span></header>
+  <div id="log"></div>
+  <footer>
+    <label><input type="checkbox" id="attach"> 附上当前页面</label>
+    <div class="row"><textarea id="msg" placeholder="对蜂后说…"></textarea><button id="send">发送</button></div>
+  </footer>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
