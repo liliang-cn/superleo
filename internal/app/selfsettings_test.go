@@ -144,7 +144,7 @@ func TestEveryBoundaryKeyWaitsForApproval(t *testing.T) {
 
 	samples := map[string]any{
 		"llm_base_url": "https://llm.example.invalid/v1", "llm_key": "sk-NEW-1", "search_base_url": "https://s.example.invalid",
-		"search_key": "sk-NEW-2", "searxng_url": "https://sx.example.invalid", "tts_base_url": "https://t.example.invalid", "tts_key": "sk-NEW-3",
+		"search_key": "sk-NEW-2", "searxng_url": "https://sx.example.invalid", "tts_base_url": "https://t.example.invalid", "tts_key": "sk-NEW-3", "stt_base_url": "https://s.example.invalid", "stt_key": "sk-NEW-4",
 		"desktop_control": true, "desktop_blocked_apps": []any{"Mail"}, "shared_memory_endpoint": "c2.example.invalid:1",
 		"shared_memory_token": "sk-NEW-4", "embed_base_url": "https://e.example.invalid", "embed_key": "sk-NEW-5",
 		"external_agents.unattended": true, "external_agents.roots": []any{"/tmp"}, "external_agents.binaries": map[string]any{"claude": "/bin/echo"},

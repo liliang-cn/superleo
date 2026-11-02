@@ -4342,6 +4342,11 @@ export namespace backend {
 	    embed_model: string;
 	    tts_base_url: string;
 	    tts_key: string;
+	    stt_base_url: string;
+	    stt_key: string;
+	    stt_model: string;
+	    stt_api: string;
+	    stt_prompt: string;
 	    tts_model: string;
 	    tts_voice: string;
 	    search_base_url: string;
@@ -4407,6 +4412,11 @@ export namespace backend {
 	        this.embed_model = source["embed_model"];
 	        this.tts_base_url = source["tts_base_url"];
 	        this.tts_key = source["tts_key"];
+	        this.stt_base_url = source["stt_base_url"];
+	        this.stt_key = source["stt_key"];
+	        this.stt_model = source["stt_model"];
+	        this.stt_api = source["stt_api"];
+	        this.stt_prompt = source["stt_prompt"];
 	        this.tts_model = source["tts_model"];
 	        this.tts_voice = source["tts_voice"];
 	        this.search_base_url = source["search_base_url"];

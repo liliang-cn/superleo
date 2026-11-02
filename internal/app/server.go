@@ -344,6 +344,8 @@ func newAPIMux(app *App, hub *eventHub, creds *credentials, handoff *handoffStor
 	// JSON, and base64 inside JSON would cost a third of the size and all of
 	// the streaming.
 	mux.HandleFunc("/api/tts", app.handleSpeak)
+	// Its counterpart: a recording in, text out (the phone's server recognition).
+	mux.HandleFunc("/api/stt", app.handleTranscribe)
 	mux.HandleFunc(browserStreamPath, app.handleBrowserStream)
 	mux.HandleFunc("/api/hive/join", app.handleHiveJoin)
 	mux.HandleFunc("/api/hive/hold", app.handleHiveHold)

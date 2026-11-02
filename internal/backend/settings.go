@@ -58,6 +58,21 @@ type Settings struct {
 	// providers that have no voices require and the ones that do accept.
 	TTSVoice string `json:"tts_voice"`
 
+	// Speech recognition (optional): the phone's 「服务器」 mode sends the
+	// recorded audio here after the user stops. STTAPI picks the protocol:
+	// "transcriptions" (default) is OpenAI's /v1/audio/transcriptions, "chat"
+	// puts the audio into a /v1/chat/completions message as input_audio, which
+	// is how an audio-capable chat model (Gemini behind a gateway) is used when
+	// no transcription model is served. The base URL and key fall back to the
+	// brain's endpoint; STTModel has no default, so an install without one
+	// reports plainly that it has no server recognition.
+	STTBaseURL string `json:"stt_base_url"`
+	STTKey     string `json:"stt_key"`
+	STTModel   string `json:"stt_model"`
+	STTAPI     string `json:"stt_api"`
+	// STTPrompt overrides the built-in hint (Mandarin with English tech terms).
+	STTPrompt string `json:"stt_prompt"`
+
 	// Web search. The built-in web_search tool asks a search-capable,
 	// OpenAI-compatible chat endpoint for a grounded answer. Left empty, these
 	// fall back to the brain's own endpoint — a gateway that serves a
@@ -851,6 +866,28 @@ func (s *Settings) Speech() (baseURL, key, model, voice string, ok bool) {
 		key = ""
 	}
 	return baseURL, key, model, strings.TrimSpace(s.TTSVoice), true
+}
+
+// Recognition reports the endpoint, key, model and protocol to transcribe
+// with, and whether there is one at all.
+func (s *Settings) Recognition() (baseURL, key, model, api string, ok bool) {
+	if s == nil {
+		return "", "", "", "", false
+	}
+	model = strings.TrimSpace(s.STTModel)
+	baseURL = firstNonEmpty(s.STTBaseURL, s.LLMBaseURL)
+	if model == "" || baseURL == "" {
+		return "", "", "", "", false
+	}
+	key = firstNonEmpty(s.STTKey, s.LLMKey)
+	if strings.TrimSpace(key) == "none" {
+		key = ""
+	}
+	api = strings.ToLower(strings.TrimSpace(s.STTAPI))
+	if api != "chat" {
+		api = "transcriptions"
+	}
+	return baseURL, key, model, api, true
 }
 
 func (s *Settings) UseEmbeddings() bool {
