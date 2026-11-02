@@ -27,3 +27,10 @@ test('SuperLeo answered the latest turn in the engine\'s place: SuperLeo, by its
 test('a later engine in the list answered: that one', () => {
   assert.equal(queenThinker('hermes.mac', 'claude'), 'Claude Code');
 });
+
+test('recalled memory handed over as a user message is never a bubble', () => {
+  const {isInjectedMemory} = mod.exports;
+  assert.equal(isInjectedMemory('user', '## Relevant Memory\n\n- likes tea'), true);
+  assert.equal(isInjectedMemory('user', '你现在是 gemini吗？'), false);
+  assert.equal(isInjectedMemory('assistant', '## Relevant Memory'), false);
+});

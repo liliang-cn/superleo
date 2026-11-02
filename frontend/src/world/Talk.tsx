@@ -6,7 +6,7 @@ import { EventsOn } from "../../wailsjs/runtime";
 import { loadQueenSession, queenSession } from "../lib/queenConsole";
 import { useI18n } from "../lib/i18n";
 import { useImeGuard } from "../lib/ime";
-import { visibleAnswer } from "../lib/format";
+import { isInjectedMemory, visibleAnswer } from "../lib/format";
 import { stepLabel } from "../lib/trace";
 import { Response } from "@/components/ai-elements/response";
 import { say, sayDone } from "./bubbles";
@@ -29,6 +29,12 @@ type Line = { who: "you" | "it"; text: string; bad?: boolean; req?: string; tool
 // `conv` is the kept conversation of a worker or agent, `thread` a coding run's:
 // where the Conversations page has the whole of it.
 const threads = new Map<string, { lines: Line[]; run?: string; conv?: string; thread?: string }>();
+// The card and its maximized form are two mounts of this component; a reply
+// that lands while only the other one is mounted (or after this one went)
+// must still reach the one on screen, and so must "still waiting".
+const watchers = new Map<string, Set<() => void>>();
+const waiting = new Map<string, string>();
+const notify = (key: string) => watchers.get(key)?.forEach((fn) => fn());
 /** Which robot speaks for a talker, in the world. */
 const actorOf = (t: Talker) => t.kind === "queen" ? "queen" : t.kind === "worker" ? "worker:" + t.name : t.kind === "agent" ? "agent:" + t.name : t.kind === "cli" ? "cli:" + t.agent : "bee:" + t.id;
 const keyOf = (t: Talker) => t.kind + ":" + ("name" in t ? t.name : "agent" in t ? t.agent : "id" in t ? t.id : "");
@@ -76,7 +82,7 @@ export default function Talk({ who, placeholder }: { who: Talker; placeholder: s
   const key = keyOf(who);
   const [lines, setLines] = useState<Line[]>(() => threads.get(key)?.lines ?? []);
   const [text, setText] = useState("");
-  const [busy, setBusy] = useState("");
+  const [busy, setBusy] = useState(() => waiting.get(key) ?? "");
   // The queen's answer so far, as it streams.
   const [streamed, setStreamed] = useState("");
   const raw = useRef("");
@@ -89,12 +95,26 @@ export default function Talk({ who, placeholder }: { who: Talker; placeholder: s
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
-  useEffect(() => { setLines(threads.get(key)?.lines ?? []); setBusy(""); setStreamed(""); raw.current = ""; }, [key]);
+  useEffect(() => { setLines(threads.get(key)?.lines ?? []); setBusy(waiting.get(key) ?? ""); setStreamed(""); raw.current = ""; }, [key]);
+  // Another mount of this conversation (the card, then its maximized form)
+  // changed it: take what it has.
+  useEffect(() => {
+    const fn = () => {
+      if (!alive.current) return;
+      setLines(threads.get(key)?.lines ?? []);
+      if (who.kind !== "queen") setBusy(waiting.get(key) ?? "");
+    };
+    const set = watchers.get(key) ?? new Set();
+    set.add(fn);
+    watchers.set(key, set);
+    return () => { set.delete(fn); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   // The queen's card opens on where the conversation with her is.
   useEffect(() => {
     if (who.kind !== "queen" || threads.get(key)?.lines.length) return;
     loadQueenSession().then((id) => ChatHistory(id)).then((turns: any[]) => {
-      const last = (turns ?? []).filter((x) => (x.role === "user" || x.role === "assistant") && x.kind !== "context" && x.content).slice(-6);
+      const last = (turns ?? []).filter((x) => (x.role === "user" || x.role === "assistant") && x.kind !== "context" && x.kind !== "interim" && x.content && !isInjectedMemory(x.role, String(x.content))).slice(-6);
       const th = { lines: last.map((x) => ({ who: x.role === "user" ? "you" : "it", text: String(x.content).slice(0, 4000) }) as Line) };
       threads.set(key, th);
       setLines(th.lines);
@@ -109,10 +129,11 @@ export default function Talk({ who, placeholder }: { who: Talker; placeholder: s
   const push = (l: Line) => {
     if (l.who === "it") sayDone(actorOf(who), l.text);
     const th = threads.get(key) ?? { lines: [] };
-    if (!alive.current) { th.lines = [...th.lines, l]; threads.set(key, th); return; }
     th.lines = [...th.lines, l];
     threads.set(key, th);
-    setLines(th.lines);
+    if (l.who === "it") waiting.delete(key);
+    notify(key);
+    if (alive.current) setLines(th.lines);
   };
 
   // The queen's answer streams in on the chat events of this request, word by
@@ -187,6 +208,7 @@ export default function Talk({ who, placeholder }: { who: Talker; placeholder: s
     setText("");
     push({ who: "you", text: s });
     setBusy(t("Thinking…"));
+    if (who.kind !== "queen") waiting.set(key, t("Thinking…"));
     say(actorOf(who), "", "think", 600);
     try {
       switch (who.kind) {

@@ -175,3 +175,9 @@ export function queenEngineNote(engine?: string, now?: string): string {
   if (!engine || !now || now === engine) return "";
   return now === "superleo" ? "SuperLeo" : engineLabel(now);
 }
+
+/** Recalled memory the agent put in front of the model as a "user" message
+ *  ("## Relevant Memory"): never something the person typed. */
+export function isInjectedMemory(role: string, content: string): boolean {
+  return role === "user" && /^\s*## Relevant Memory\b/.test(content || "");
+}

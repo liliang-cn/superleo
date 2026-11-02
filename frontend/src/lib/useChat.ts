@@ -12,7 +12,7 @@ import {
   ProgressStep,
   TraceItem,
 } from "./types";
-import { visibleAnswer } from "./format";
+import { isInjectedMemory, visibleAnswer } from "./format";
 import { traceIdOf } from "./trace";
 
 /**
@@ -423,6 +423,11 @@ function lintRetryLine(content: string | undefined): string {
     [applyEvent, finishAsk],
   );
 
+  // A turn of this conversation that nobody here asked for and no chat:turn
+  // announced (it began while this view was away or hidden: the card in the
+  // world, another window). Set below, once adoptTurn and loadSession exist.
+  const missed = useRef<(requestId: string, item: Queued) => void>(() => {});
+
   const route = useCallback(
     (requestId: string, item: Queued) => {
       let askId = requestId ? bound.current.get(requestId) : undefined;
@@ -443,7 +448,11 @@ function lintRetryLine(content: string | undefined): string {
       // still waiting for an id, nothing can ever claim this payload (the
       // "backend not ready" error is tagged with an id SendChat never returns),
       // so dropping it is the only way it does not leak.
-      if (!requestId || unbound.current === 0) return;
+      if (!requestId) return;
+      if (unbound.current === 0) {
+        missed.current(requestId, item);
+        return;
+      }
       const q = queue.current.get(requestId);
       if (q) q.push(item);
       else queue.current.set(requestId, [item]);
@@ -500,7 +509,7 @@ function lintRetryLine(content: string | undefined): string {
       running.current.add(askId);
       bound.current.set(turn.requestId, askId);
       request.current.set(askId, turn.requestId);
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      setMessages((prev) => (turn.message ? [...prev, userMsg, assistantMsg] : [...prev, assistantMsg]));
       const held = queue.current.get(turn.requestId);
       queue.current.delete(turn.requestId);
       held?.forEach((item) => dispatch(askId, item));
@@ -688,7 +697,7 @@ function lintRetryLine(content: string | undefined): string {
           role: t.role as ChatMessage["role"],
           content: t.content,
           kind:
-            t.kind === "context"
+            t.kind === "context" || isInjectedMemory(t.role, t.content)
               ? ("context" as const)
               : t.kind === "interim"
                 ? ("interim" as const)
@@ -748,6 +757,39 @@ function lintRetryLine(content: string | undefined): string {
       EventsOn("hivelink:state", (p: { live?: boolean }) => { if (p?.live) again(); }),
     ];
     return () => offs.forEach((off) => typeof off === "function" && off());
+  }, []);
+
+  // The conversation is read again when the window is shown (the card in the
+  // world maximized into it) or comes back to the front, and a turn it never
+  // saw begin is followed from its first event or read when it ends, so what
+  // was said in a card is never missing here.
+  useEffect(() => {
+    missed.current = (requestId, item) => {
+      const sid = (item.payload as { sessionId?: string } | undefined)?.sessionId;
+      if (!sid || sid !== sessionRef.current || bound.current.has(requestId)) return;
+      if (item.kind === "event") {
+        queue.current.set(requestId, [item]);
+        adoptTurn({ requestId, sessionId: sid, message: "" });
+      } else if (running.current.size === 0) {
+        void loadRef.current(sid).catch(() => {});
+      }
+    };
+  }, [adoptTurn]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const again = () => {
+      if (running.current.size > 0 || unbound.current > 0) return;
+      void loadRef.current(sessionRef.current).catch(() => {});
+    };
+    const onShow = () => { if (!document.hidden) again(); };
+    window.addEventListener("superleo:window", again);
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", onShow);
+    return () => {
+      window.removeEventListener("superleo:window", again);
+      window.removeEventListener("focus", again);
+      document.removeEventListener("visibilitychange", onShow);
+    };
   }, []);
 
   // Restore the conversation that was on screen before the reload. Only the
