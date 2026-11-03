@@ -77,9 +77,20 @@ func TestEachModeTakesItsWay(t *testing.T) {
 	if u, _ := proxyForURL(ProxySettings{Mode: ProxyModeOff}, out); u != nil {
 		t.Fatal("off went through a proxy")
 	}
-	t.Setenv("HTTPS_PROXY", "")
-	if u, _ := proxyForURL(ProxySettings{}, out); u != nil {
-		t.Fatalf("the environment has no proxy: %v", u)
+	// Empty mode follows the environment: http.ProxyFromEnvironment caches
+	// its answer for the process's life (sync.Once), so asserting "no proxy"
+	// here would depend on no earlier test in this binary, nor this machine's
+	// real HTTPS_PROXY/https_proxy, having touched it first. Checking that
+	// proxyForURL's answer agrees with calling it directly holds regardless.
+	urlStr := func(u *url.URL) string {
+		if u == nil {
+			return ""
+		}
+		return u.String()
+	}
+	want, _ := http.ProxyFromEnvironment(&http.Request{URL: out})
+	if got, _ := proxyForURL(ProxySettings{}, out); urlStr(got) != urlStr(want) {
+		t.Fatalf("empty mode should follow the environment: got %v, want %v", got, want)
 	}
 	for _, bad := range []ProxySettings{{Mode: ProxyModeManual}, {Mode: ProxyModeManual, URL: "ftp://x:1"}, {Mode: ProxyModeManual, URL: "http://nohost"}, {Mode: "clash"}} {
 		if bad.Validate() == nil {
