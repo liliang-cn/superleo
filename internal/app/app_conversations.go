@@ -102,7 +102,7 @@ type ConversationList struct {
 
 // ConversationThread is one conversation, whole.
 type ConversationThread struct {
-	Conversation Conversation      `json:"conversation"`
+	Conversation Conversation       `json:"conversation"`
 	Turns        []backend.ChatTurn `json:"turns"`
 }
 
@@ -456,7 +456,9 @@ func codingFromThread(thread string, rs []CLIRun) Conversation {
 	return c
 }
 
-func termID(machine, cli, session string) string { return "term:" + machine + "|" + cli + "|" + session }
+func termID(machine, cli, session string) string {
+	return "term:" + machine + "|" + cli + "|" + session
+}
 
 func (a *App) codingConversations() []Conversation {
 	var out []Conversation
