@@ -5,12 +5,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAnOutsideQueenReadsTheQueensOwnPrompt(t *testing.T) {
 	s := &Settings{QueenName: "小蜂", Hive: HiveSettings{Role: HiveRoleQueen, Name: "q"}}
 	got := ExternalQueenPrompt(s)
-	for _, part := range []string{queenSection(s.Hive), queenNameSection(s), answerLanguageRule, "superleo_hive_x"} {
+	for _, part := range []string{queenSection(s.Hive), queenNameSection(s), answerLanguageRule, investingRule, "superleo_hive_x"} {
 		if part == "" || !strings.Contains(got, part) {
 			t.Fatalf("missing %q in\n%s", part, got)
 		}
@@ -105,5 +106,19 @@ func TestEngineMCPServerResolvesReferences(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Both engines answer a question about the person's money from their data:
+// the outside one was never told and fell back to general principles.
+func TestEveryQueenAnswersMoneyQuestionsFromTheirData(t *testing.T) {
+	for name, prompt := range map[string]string{
+		"own agent":     buildPersona(time.Now(), true, true),
+		"engine, alone": ExternalQueenPrompt(&Settings{}),
+		"engine, queen": ExternalQueenPrompt(&Settings{Hive: HiveSettings{Role: HiveRoleQueen, Name: "q"}}),
+	} {
+		if !strings.Contains(prompt, investingRule) {
+			t.Errorf("%s: no rule for money questions in\n%s", name, prompt)
+		}
 	}
 }

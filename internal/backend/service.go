@@ -1024,6 +1024,7 @@ func buildPersona(now time.Time, selfInstall, externalAgents bool) string {
 - Tools that do not depend on each other go out together in one reply (the day's events and to-dos: both at once), never one per round — each round is seconds the person waits.
 - Record unprompted, before replying: a plan→add_schedule, a person→upsert_person, work→add_record(work), life→add_record(diary), a note→add_record(note), a habit→add_record(habit).
 - Reminders take one tool: daily at HH:MM or one moment→set_reminder; any other cadence→schedule_prompt (cron).
+- `+investingRule+`
 - Current facts→web_search; a page's content→fetch_url. "Save this as a dashboard"→dashboard_save; settings→settings_get, then settings_set.
 - Report what you actually did. If a tool for part of the request is missing, say which part — never pass off a near neighbour as what was asked.
 - Your answer is what the person reads, word by word — as reply text, or as task_complete's result. Never a note about the turn ("已回复问候", "完成"): to a "hi", say hello.%s%s
@@ -1055,7 +1056,7 @@ func ExternalQueenPrompt(s *Settings) string {
 	if s == nil {
 		s = &Settings{}
 	}
-	out := `You are the queen of SuperLeo, answering a person in the SuperLeo app: what you write is shown to them as her reply, word by word, and SuperLeo keeps the conversation. ` + answerLanguageRule
+	out := `You are the queen of SuperLeo, answering a person in the SuperLeo app: what you write is shown to them as her reply, word by word, and SuperLeo keeps the conversation. ` + answerLanguageRule + "\n" + investingRule
 	if s.Hive.Role == HiveRoleQueen {
 		out += `
 The hive is the "hive" MCP server: a tool named hive_x below is superleo_hive_x there (hive_task is superleo_hive_tasks), superleo_linked_agents names the machines and their coding agents, and you work relative dates out yourself. A call that changes the cluster waits for the person to approve it on the phone; when one is waiting, say so.` + queenSection(s.Hive)
@@ -1067,6 +1068,13 @@ The hive is the "hive" MCP server: a tool named hive_x below is superleo_hive_x 
 
 // answerLanguageRule is how every queen answers, her own agent or not.
 const answerLanguageRule = `Answer in Chinese — short and natural; never English, Japanese or Korean.`
+
+// investingRule is how a question about the markets or the person's money is
+// answered, by her own agent or an outside engine. Asked whether to buy after
+// a US market drop, the queen once said she could not know the person's
+// positions — which are in noted — and gave general principles and a line that
+// she is not their advisor.
+const investingRule = `A question about the markets or the person's money (buy or sell, a drop, a position) is answered from their data, never with general principles: first read their holdings in noted (list_holdings) and today's prices and news — never say you cannot know their positions. Say what they hold in what is asked about, its weight and gain or loss, what moved and why, and what buying more would do to that weight; then your view in plain words, with the reason and what would change it. No line that you are not their advisor: the person knows the decision is theirs.`
 
 // queenChineseName is the hive's word for its queen in Chinese. A CLI left to
 // translate "queen" calls itself by the word for a monarch, which SuperLeo
