@@ -17,6 +17,7 @@ import (
 
 	"github.com/liliang-cn/agentexec"
 	"github.com/liliang-cn/superleo/internal/backend"
+	"golang.org/x/sys/unix"
 )
 
 // gatedClaude is a claude that names its session, says it is working, waits
@@ -112,10 +113,10 @@ func TestARunningCodingRunIsJournalledWithItsProcessOutsideSuperLeo(t *testing.T
 	if live.PID <= 0 || !procAlive(live.PID) {
 		t.Fatalf("no live process in the journal: %d", live.PID)
 	}
-	if sid, err := syscall.Getsid(live.PID); err != nil || sid != live.PID {
+	if sid, err := unix.Getsid(live.PID); err != nil || sid != live.PID {
 		t.Fatalf("the CLI is not in a session of its own: sid %d, pid %d, %v", sid, live.PID, err)
 	}
-	if sid, _ := syscall.Getsid(0); sid == live.PID {
+	if sid, _ := unix.Getsid(0); sid == live.PID {
 		t.Fatal("the CLI shares SuperLeo's session")
 	}
 	waitFor(t, "the event journalled", func() bool {
