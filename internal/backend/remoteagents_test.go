@@ -130,7 +130,7 @@ func TestRemoteAgentsAreOffUntilTurnedOn(t *testing.T) {
 		t.Error("a name resolves while the feature is off")
 	}
 	s.RemoteAgents.Enabled = true
-	if !s.RemoteAgents.Has("pi") || !s.RemoteAgents.Has("hermes") {
+	if !s.RemoteAgents.Has("pi") || !s.RemoteAgents.Has("openclaw") {
 		t.Errorf("the cluster agents are missing: %v", s.RemoteAgents.Names())
 	}
 
@@ -156,7 +156,7 @@ func TestAConfiguredAgentIsNotOverwritten(t *testing.T) {
 	if got := s.RemoteAgents.Agents["pi"].Hosts[0]; got != "me@elsewhere" {
 		t.Errorf("the built-in catalogue overwrote a configured agent: %q", got)
 	}
-	if _, ok := s.RemoteAgents.Agents["hermes"]; !ok {
+	if _, ok := s.RemoteAgents.Agents["openclaw"]; !ok {
 		t.Error("backfilling stopped at the first name that was taken")
 	}
 }
@@ -164,6 +164,7 @@ func TestAConfiguredAgentIsNotOverwritten(t *testing.T) {
 // An entry that cannot be called must not be offered: a name in the menu that
 // always fails is worse than a name that is not there.
 func TestAnUncallableAgentIsDropped(t *testing.T) {
+	withSSH(t, true)
 	r := RemoteAgents{Agents: map[string]RemoteAgent{
 		"nohost": {Command: []string{"x", "{prompt}"}},
 		"noargv": {Hosts: []string{"a@b"}},
@@ -174,6 +175,27 @@ func TestAnUncallableAgentIsDropped(t *testing.T) {
 	if got := r.Names(); len(got) != 1 || got[0] != "fine" {
 		t.Errorf("normalize kept agents that cannot run: %v", got)
 	}
+}
+
+// A hive pod has no ssh client, so the cluster agents it would reach over SSH
+// are not offered there; what runs locally and the workers reached by URL are.
+func TestWithoutSSHOnlyLocalAndURLAgentsAreOffered(t *testing.T) {
+	withSSH(t, false)
+	var r RemoteAgents
+	r.backfill()
+	r.Agents["pi-here"] = RemoteAgent{Hosts: []string{LocalHost}, Command: []string{"pi", "{prompt}"}}
+	r.Agents["worker"] = RemoteAgent{URL: "http://worker:43117"}
+	r.normalize()
+	if got := r.Names(); len(got) != 2 || got[0] != "pi-here" || got[1] != "worker" {
+		t.Errorf("without ssh the agents offered are %v", got)
+	}
+}
+
+func withSSH(t *testing.T, found bool) {
+	t.Helper()
+	was := sshFound
+	sshFound = func() bool { return found }
+	t.Cleanup(func() { sshFound = was })
 }
 
 // The runner reports a missing name rather than erroring, because the caller

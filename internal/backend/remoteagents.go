@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,11 +23,11 @@ import (
 //
 // ExternalAgents (settings.go) hands a task to a CLI installed on *this*
 // machine. This is the other half: the agents that live somewhere else on the
-// network — pi and hermes on the openclaw cluster, and openclaw itself.
+// network — pi on the openclaw cluster, and openclaw itself.
 //
 // They are reached over SSH rather than over an HTTP API, and that is a
-// property of what they are, not a shortcut. hermes and pi are launcher shells
-// on a DRBD volume with no listener of their own; only the openclaw gateway
+// property of what they are, not a shortcut. pi is a launcher shell
+// on a DRBD volume with no listener of its own; only the openclaw gateway
 // binds a port. Standing an HTTP shim in front of them would mean a long-lived
 // process on that volume, which pins it and stops the node from being taken
 // over — the exact failure the cluster is built to avoid. SSH costs a
@@ -34,7 +35,7 @@ import (
 //
 // The same volume is why a host is resolved rather than configured. The
 // resource follows drbd-reactor's promoter between nodes, so the machine that
-// can run hermes today is not necessarily the one that could yesterday. Each
+// can run pi today is not necessarily the one that could yesterday. Each
 // agent names the hosts it may live on and a probe that says "it is here"; the
 // answer is cached briefly, because a failover is rare and a probe per call
 // would double the latency of every delegated question.
@@ -137,11 +138,19 @@ func (r RemoteAgents) Has(name string) bool {
 	return ok
 }
 
+// sshFound reports whether this machine has an ssh client. A variable so a
+// test can stand in for a pod.
+var sshFound = func() bool {
+	_, err := exec.LookPath("ssh")
+	return err == nil
+}
+
 // normalize fills in what the defaults provide and drops what cannot run.
 func (r *RemoteAgents) normalize() {
 	if r.Agents == nil {
 		return
 	}
+	ssh := sshFound()
 	for name, a := range r.Agents {
 		// An agent with no argv or no host cannot be called, and leaving it in
 		// the list means offering the model a name that always fails.
@@ -149,6 +158,15 @@ func (r *RemoteAgents) normalize() {
 			continue // a worker needs neither
 		}
 		if len(a.Command) == 0 || len(a.Hosts) == 0 {
+			delete(r.Agents, name)
+			continue
+		}
+		// Nor can one reached over SSH from a machine with no ssh client, which
+		// is every hive pod: the image ships none. The run fails at the probe
+		// with "not running on any of its hosts", which reads like the agent
+		// being down, and the queen goes on handing it orders. LocalHost runs
+		// here and needs no client.
+		if !ssh && !slices.Contains(a.Hosts, LocalHost) {
 			delete(r.Agents, name)
 			continue
 		}
@@ -179,11 +197,9 @@ func (r *RemoteAgents) normalize() {
 //     every call goes through sudo. The SSH login is the node's own admin
 //     account, which is the one with a key on it.
 //   - Dir is /tmp and not a default. The login user's home is unreadable to
-//     openclaw, and hermes started there fails with
+//     openclaw, and a launcher started there fails with
 //     "Permission denied: '/home/<user>/.git'" — which reads like a broken
 //     install rather than a wrong working directory.
-//   - hermes needs HERMES_HOME's base handed to it explicitly: its launcher
-//     derives the path from HOME, and sudo does not carry the login user's.
 //   - The hosts are every node the promoter can put the volume on, not the
 //     one holding it today; the probe is what picks.
 func (r *RemoteAgents) backfill() {
@@ -200,6 +216,7 @@ func (r *RemoteAgents) backfill() {
 // clusterHosts are the nodes the openclaw resource can be promoted on.
 var clusterHosts = []string{
 	"sds@192.168.123.212",                    // node-e, on the hp box
+	"sds@192.168.123.227",                    // node-b
 	"-F ~/.lima/sds-a/ssh.config lima-sds-a", // node-a, the Lima VM on this Mac
 }
 
@@ -215,15 +232,6 @@ func defaultRemoteAgents() map[string]RemoteAgent {
 			User:    "openclaw",
 			Dir:     "/tmp",
 			Command: []string{"/var/lib/openclaw/pi/pi", "-p", "{prompt}"},
-		},
-		"hermes": {
-			About:   "hermes — a general agent on the openclaw cluster, with its own memory and kanban.",
-			Hosts:   clusterHosts,
-			Probe:   clusterProbe,
-			User:    "openclaw",
-			Dir:     "/tmp",
-			Env:     map[string]string{"HOME": "/var/lib/openclaw-home"},
-			Command: []string{"/var/lib/openclaw/hermes/hermes", "--oneshot", "{prompt}"},
 		},
 		"openclaw": {
 			About: "openclaw — the gateway agent that runs the home cluster: SDS alerts, browser, WeChat, cron.",
