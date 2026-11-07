@@ -64,11 +64,15 @@ func (a *App) Attention() []AttentionItem {
 	dayAgo := now.Add(-24 * time.Hour)
 
 	// What a bee told the person in the last day: it speaks only when
-	// something needs them, so each message is a thing to look at.
+	// something needs them, so its message is a thing to look at. Only its
+	// latest, newest first: a bee on a half-hourly patrol that reports every
+	// time would otherwise fill the list with one finding said forty ways.
+	told := map[string]bool{}
 	for _, r := range a.StandingReports("") {
-		if r.Kind != "message" || r.At.Before(dayAgo) {
+		if r.Kind != "message" || r.At.Before(dayAgo) || told[r.Agent] {
 			continue
 		}
+		told[r.Agent] = true
 		at := r.At
 		needs = append(needs, AttentionItem{Level: "needs", Kind: "report", Title: r.Name,
 			Detail: firstLineOf(r.Message, 160), At: &at, Ref: r.Agent, Open: "agents"})
