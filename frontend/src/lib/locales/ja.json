@@ -602,5 +602,14 @@
  "Where": "場所",
  "Workers": "ワーカー",
  "Orders out": "送り出した指示",
- "What should {name} do?": "{name} に何をさせますか？"
+ "What should {name} do?": "{name} に何をさせますか？",
+ "Dismiss": "閉じる",
+ "Dismiss all": "すべて閉じる",
+ "Expand": "展開",
+ "Collapse": "折りたたむ",
+ "Open conversation": "会話を開く",
+ "{count} more": "ほか {count} 件",
+ "Scheduled run finished": "スケジュール実行が完了",
+ "Scheduled run failed": "スケジュール実行が失敗",
+ "Scheduled run stopped": "スケジュール実行を停止"
 }

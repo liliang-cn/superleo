@@ -33,6 +33,8 @@ import SetupBanner from "./components/SetupBanner";
 import { setReady } from "./lib/ready";
 import { useBackendToasts } from "./lib/toasts";
 import { EventsOff, EventsOn } from "../wailsjs/runtime/runtime";
+import CardStack from "./components/CardStack";
+import { useDeskWorldOn } from "./lib/deskWorld";
 import ToolApprovals from "./components/ToolApprovals";
 import { ChatFab, FabStack } from "./components/Fabs";
 import { Accent, AppStatus, Theme, ViewKey, normalizeStatus } from "./lib/types";
@@ -130,6 +132,9 @@ export default function App() {
   // to in order to look at the audit log.
   const approvals = useToolApprovals();
   const attention = useAttentionState();
+  // In the 3D world everything that pops up lands in one stack, top right; the
+  // corner toasts and the approval modal stay out of it so nothing shows twice.
+  const world3d = useDeskWorldOn();
 
   useEffect(() => {
     // On the desktop the shell owns light and dark (the canvas theme).
@@ -218,18 +223,18 @@ export default function App() {
   if (clientKind() === "desktop") {
     return (
       <>
-        <DeskShell status={status} loading={loading} view={view} badges={{ records: runs.unseen, tasks: attention.items.filter(i => i.level === "needs").length }} onOpenConversation={openConversation}>
+        <DeskShell overlay={<CardStack runs={runs} approvals={approvals.pending} note={approvals.note} onDismissNote={approvals.dismissNote} onResolve={approvals.resolve} onOpenConversation={openConversation} />} status={status} loading={loading} view={view} badges={{ records: runs.unseen, tasks: attention.items.filter(i => i.level === "needs").length }} onOpenConversation={openConversation}>
           {view === "home" || view === "chat" ? (
-            <DeskView attentionItems={attention.items} attentionError={attention.error} approvals={approvals} openSession={pendingSession} onSessionOpened={() => setPendingSession("")} />
+            <DeskView attentionItems={attention.items} attentionError={attention.error} approvals={world3d ? { ...approvals, pending: [] } : approvals} openSession={pendingSession} onSessionOpened={() => setPendingSession("")} />
           ) : routes}
         </DeskShell>
-        {view !== "records" && <ScheduleRunToasts log={runs} onOpenConversation={openConversation} />}
-        <Toaster onOpenConversation={openConversation} />
+        {!world3d && view !== "records" && <ScheduleRunToasts log={runs} onOpenConversation={openConversation} />}
+        {!world3d && <Toaster onOpenConversation={openConversation} />}
         <SetupBanner status={status} loading={loading} />
         <BrowserPanelHost />
         <ToolApprovals
-          pending={view === "home" || view === "chat" || view === "tasks" ? [] : approvals.pending}
-          note={approvals.note}
+          pending={world3d || view === "home" || view === "chat" || view === "tasks" ? [] : approvals.pending}
+          note={world3d ? "" : approvals.note}
           onResolve={approvals.resolve}
           onDismissNote={approvals.dismissNote}
         />

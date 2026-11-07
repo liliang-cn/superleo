@@ -615,5 +615,14 @@
  "Expires in {time}": "Expire dans {time}",
  "Show a new code": "Afficher un nouveau code",
  "{name} is connected": "{name} est connecté",
- "Your phone": "Votre téléphone"
+ "Your phone": "Votre téléphone",
+ "Dismiss": "Ignorer",
+ "Dismiss all": "Tout ignorer",
+ "Expand": "Développer",
+ "Collapse": "Réduire",
+ "Open conversation": "Ouvrir la conversation",
+ "{count} more": "{count} de plus",
+ "Scheduled run finished": "Exécution planifiée terminée",
+ "Scheduled run failed": "Exécution planifiée échouée",
+ "Scheduled run stopped": "Exécution planifiée arrêtée"
 }

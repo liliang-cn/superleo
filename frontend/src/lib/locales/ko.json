@@ -602,5 +602,14 @@
  "Where": "위치",
  "Workers": "워커",
  "Orders out": "보낸 지시",
- "What should {name} do?": "{name}에게 무엇을 시킬까요?"
+ "What should {name} do?": "{name}에게 무엇을 시킬까요?",
+ "Dismiss": "닫기",
+ "Dismiss all": "모두 닫기",
+ "Expand": "펼치기",
+ "Collapse": "접기",
+ "Open conversation": "대화 열기",
+ "{count} more": "{count}개 더",
+ "Scheduled run finished": "예약 실행 완료",
+ "Scheduled run failed": "예약 실행 실패",
+ "Scheduled run stopped": "예약 실행 중지"
 }

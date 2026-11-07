@@ -22,6 +22,7 @@ import { openBrowserPanel, useBrowserPanelOpen } from "../lib/browser";
 import "../canvas/canvas.css";
 import "./desk.css";
 
+import { setDeskWorld } from "../lib/deskWorld";
 const served = Boolean((window as unknown as Record<string, unknown>).superleoServed);
 export const drag = { "--wails-draggable": "drag" } as React.CSSProperties;
 export const noDrag = { "--wails-draggable": "no-drag" } as React.CSSProperties;
@@ -80,7 +81,7 @@ export const TITLES: Record<ViewKey, string> = {
  * is the shell's child — the home's three panes, or any other screen on a
  * pane of glass.
  */
-export default function DeskShell({ view, badges, children, onOpenConversation, status, loading }: { view: ViewKey; badges?: Partial<Record<ViewKey, number>>; children: React.ReactNode; onOpenConversation?: (session: string) => void; status:AppStatus|null; loading:boolean }) {
+export default function DeskShell({ view, badges, children, overlay, onOpenConversation, status, loading }: { view: ViewKey; overlay?: React.ReactNode; badges?: Partial<Record<ViewKey, number>>; children: React.ReactNode; onOpenConversation?: (session: string) => void; status:AppStatus|null; loading:boolean }) {
   const { t } = useI18n();
   const browserOn = useBrowserPanelOpen();
   const queen = useQueenName();
@@ -128,6 +129,8 @@ export default function DeskShell({ view, badges, children, onOpenConversation, 
     return () => { window.removeEventListener("keydown", esc); window.removeEventListener("superleo:window", open); window.removeEventListener("superleo:theme", theme); };
   }, [navigate]);
   const world = mode !== "menu";
+  // The App decides which toasts to draw by this, and must not draw them twice.
+  useEffect(() => { setDeskWorld(world); return () => setDeskWorld(false); }, [world]);
   // The mode changes how the page in front of you is framed, never which page
   // it is: a page switched to 3D stays open, as a window over its part of the
   // world; the home becomes the world itself.
@@ -263,6 +266,7 @@ export default function DeskShell({ view, badges, children, onOpenConversation, 
           <ModeFab world={world} onClick={toggleMode} />
           <ChatFab onClick={openChat} />
         </FabStack>
+        {world && overlay}
         <DeskStatusBar status={status} loading={loading} codingRuns={liveRuns}/>
       </div>
     </PaneCtx.Provider>

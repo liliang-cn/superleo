@@ -615,5 +615,14 @@
  "Expires in {time}": "Läuft ab in {time}",
  "Show a new code": "Neuen Code zeigen",
  "{name} is connected": "{name} ist verbunden",
- "Your phone": "Dein Telefon"
+ "Your phone": "Dein Telefon",
+ "Dismiss": "Ausblenden",
+ "Dismiss all": "Alle ausblenden",
+ "Expand": "Aufklappen",
+ "Collapse": "Zuklappen",
+ "Open conversation": "Unterhaltung öffnen",
+ "{count} more": "{count} weitere",
+ "Scheduled run finished": "Geplanter Lauf beendet",
+ "Scheduled run failed": "Geplanter Lauf fehlgeschlagen",
+ "Scheduled run stopped": "Geplanter Lauf gestoppt"
 }

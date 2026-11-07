@@ -104,6 +104,18 @@ export interface ToastInput {
   ttl?: number;
 }
 
+/**
+ * A raw tap on every toast as it is raised, for a surface that draws them
+ * itself (the 3D view's stack). Not a snapshot: a burst of toasts in one tick
+ * reaches it one by one, where a component reading the store would see only
+ * the last render's worth.
+ */
+const shownListeners = new Set<(toast: Toast) => void>();
+export function onToastShown(listener: (toast: Toast) => void): () => void {
+  shownListeners.add(listener);
+  return () => { shownListeners.delete(listener); };
+}
+
 export function show(input: ToastInput): string {
   const level = input.level ?? "info";
   const id = input.key ?? `t${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -130,6 +142,7 @@ export function show(input: ToastInput): string {
   }
   schedule(toast);
   publish();
+  for (const listener of shownListeners) listener(toast);
   return id;
 }
 

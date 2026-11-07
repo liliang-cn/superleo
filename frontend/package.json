@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "build:world-embed": "tsc && vite build --config vite.world-embed.config.ts",
     "preview": "vite preview",
-    "test:desktop": "node --test scripts/desktop-regression.test.cjs scripts/schedule.test.cjs scripts/travel.test.cjs scripts/world-mentions.test.cjs scripts/queen-thinker.test.cjs scripts/coding-sessions.test.cjs"
+    "test:desktop": "node --test scripts/desktop-regression.test.cjs scripts/schedule.test.cjs scripts/travel.test.cjs scripts/world-mentions.test.cjs scripts/queen-thinker.test.cjs scripts/coding-sessions.test.cjs scripts/card-stack.test.cjs"
   },
   "dependencies": {
     "@ai-gui/core": "^0.36.3",

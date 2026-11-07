@@ -1,0 +1,86 @@
+/* The 3D view's notification stack. White cards, the world's ink and blue;
+   the stack itself catches nothing, only the cards and the chips do. */
+.ns-stack {
+  position: fixed; top: 146px; right: 76px; z-index: 60; width: min(360px, calc(100vw - 90px));
+  max-height: calc(100vh - 146px - 56px); overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 8px; padding: 2px;
+  pointer-events: none; scrollbar-width: none;
+  font: 13px/1.45 Geist, system-ui, sans-serif; color: #16202b;
+}
+.ns-stack::-webkit-scrollbar { display: none; }
+.ns-stack > * { pointer-events: auto; flex: none; }
+.ns-bar { display: flex; justify-content: flex-end; gap: 6px; pointer-events: none; }
+.ns-bar > * { pointer-events: auto; }
+.ns-chip, .ns-more {
+  display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border: 0; border-radius: 13px;
+  background: #fff; color: #4f5e68; font: 600 12px Geist, system-ui, sans-serif; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(22, 32, 43, 0.12), 0 0 0 1px rgba(22, 32, 43, 0.05);
+}
+.ns-chip:hover, .ns-more:hover { color: #16202b; background: #f7f9fb; }
+.ns-more { align-self: center; }
+
+.ns-card {
+  position: relative; background: #fff; border-radius: 14px; padding: 10px 10px 10px 12px;
+  box-shadow: 0 10px 30px rgba(22, 32, 43, 0.14), 0 0 0 1px rgba(22, 32, 43, 0.05);
+  animation: ns-in 0.2s ease-out; transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.ns-card::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 0 3px 3px 0; background: #b8c2cf; }
+.ns-card.ns-success::before { background: #1fa971; }
+.ns-card.ns-warn::before { background: #e0a100; }
+.ns-card.ns-error::before { background: #e5484d; }
+.ns-card.ns-approval::before { background: #2f5bea; }
+.ns-card.leaving { opacity: 0; transform: translateX(16px); pointer-events: none; }
+@keyframes ns-in { from { opacity: 0; transform: translateX(16px); } }
+
+.ns-head { display: flex; align-items: flex-start; gap: 8px; }
+.ns-icon { flex: none; margin-top: 2px; color: #5f6d77; }
+.ns-success .ns-icon { color: #1fa971; }
+.ns-warn .ns-icon { color: #c98a00; }
+.ns-error .ns-icon { color: #e5484d; }
+.ns-approval .ns-icon { color: #2f5bea; }
+.ns-text { flex: 1; min-width: 0; }
+.ns-title { font-weight: 650; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ns-source { font-size: 11.5px; color: #5f6d77; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ns-time { flex: none; font-size: 11.5px; color: #8593a0; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ns-btn {
+  flex: none; width: 24px; height: 24px; border: 0; border-radius: 7px; background: transparent; color: #4f5e68;
+  display: grid; place-items: center; cursor: pointer;
+}
+.ns-btn:hover { background: #f1f4f8; color: #16202b; }
+.ns-preview {
+  margin: 4px 0 0 23px; color: #3b4852; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ns-body { margin: 6px 0 0 23px; max-height: 280px; overflow-y: auto; overflow-wrap: anywhere; font-size: 13px; padding-right: 4px; }
+.ns-body > :first-child { margin-top: 0; }
+.ns-body > :last-child { margin-bottom: 0; }
+.ns-body pre { white-space: pre-wrap; word-break: break-word; }
+.ns-actions { display: flex; gap: 6px; margin: 9px 0 0 23px; }
+.ns-act {
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px; border: 0; border-radius: 9px;
+  background: #f1f4f8; color: #16202b; font: 600 12.5px Geist, system-ui, sans-serif; cursor: pointer;
+}
+.ns-act:hover { background: #e6ebf1; }
+.ns-act.pri { background: #2f5bea; color: #fff; }
+.ns-act.pri:hover { background: #1d3fb8; }
+.ns-btn:focus-visible, .ns-act:focus-visible, .ns-chip:focus-visible, .ns-more:focus-visible { outline: 2px solid #2f5bea; outline-offset: 1px; }
+
+:root[data-theme="dark"] .ns-stack { color: #e8edf2; }
+:root[data-theme="dark"] .ns-card, :root[data-theme="dark"] .ns-chip, :root[data-theme="dark"] .ns-more {
+  background: #1b252f; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(232, 237, 242, 0.1);
+}
+:root[data-theme="dark"] .ns-chip, :root[data-theme="dark"] .ns-more { color: #b6c2cd; }
+:root[data-theme="dark"] .ns-preview { color: #c5cfd8; }
+:root[data-theme="dark"] .ns-source, :root[data-theme="dark"] .ns-icon { color: #98a6b3; }
+:root[data-theme="dark"] .ns-time { color: #7f8e9b; }
+:root[data-theme="dark"] .ns-btn { color: #b6c2cd; }
+:root[data-theme="dark"] .ns-btn:hover, :root[data-theme="dark"] .ns-act { background: #2a3642; color: #e8edf2; }
+:root[data-theme="dark"] .ns-act:hover { background: #34424f; }
+:root[data-theme="dark"] .ns-act.pri { background: #3d6bff; color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ns-card { animation: none; transition: none; }
+}
+@media (max-width: 720px) {
+  .ns-stack { right: 14px; width: min(360px, calc(100vw - 28px)); }
+}
